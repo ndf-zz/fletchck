@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# Untracked devel and runtime files
+design/
+config/
+templates/
+static/
+
 # Distribution / packaging
 .Python
 build/
