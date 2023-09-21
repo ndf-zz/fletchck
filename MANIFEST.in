@@ -1,0 +1,2 @@
+include src/fletcher/static/*
+include src/fletcher/templates/*
