@@ -9,8 +9,9 @@ __pycache__/
 # Untracked devel and runtime files
 design/
 config/
-templates/
-static/
+src/templates/
+src/static/
+src/venv/
 
 # Distribution / packaging
 .Python

@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "tornado",
     "passlib",
+    "APScheduler",
 ]
 
 [project.urls]

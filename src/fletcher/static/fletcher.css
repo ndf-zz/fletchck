@@ -1,0 +1,48 @@
+/*
+  Fletcher - Machine Monitor
+  MIT License Copyright (c) 2023
+
+  Site style sheet
+ */
+
+.form-signin {
+  max-width: 330px;
+  padding: 1rem;
+}
+
+.form-signin .form-floating:focus-within {
+  z-index: 2;
+}
+
+.form-signin input[type="text"] {
+  margin-bottom: -1px;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.form-signin input[type="password"] {
+  margin-bottom: 10px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.logoimg {
+  width: 64px;
+  height: 64px;
+}
+
+.thought {
+  position: relative;
+}
+
+.thought:before {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  left: -6px;
+  bottom: -3px;
+  border-radius: 3px;
+  color: #fff !important;
+  background-color: RGBA(var(--bs-warning-rgb), var(--bs-bg-opacity, 1)) !important;
+}

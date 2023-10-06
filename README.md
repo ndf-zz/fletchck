@@ -1,3 +1,3 @@
 # fletcher
 
-Machine monitor
+Machine monitor with web interface
