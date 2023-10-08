@@ -147,26 +147,16 @@ class AuthLogoutHandler(BaseHandler):
         self.redirect(self.get_argument("next", "/"))
 
 
-async def runApp():
-    # check command line
-    tornado.options.parse_command_line()
-    configFile = None
-    if options.config is not None:
-        configFile = options.config
-        if not os.path.exists(options.config):
-            _log.warning('Config file not found')
-            configFile = None
-    if options.init:
-        # (re)init site from current working directory
-        util.initSite('.')
-
+async def runApp(configFile):
     # initialise site
+    siteConf = None
     if configFile is None:
         configFile = os.path.join(defaults.CONFIGPATH, 'config')
-    siteConf = util.loadSite(configFile)
+    if os.path.exists(configFile):
+        siteConf = util.loadSite(configFile)
     if siteConf is None:
         _log.error('Error reading site config')
-        raise RuntimeError('Error reading site config')
+        return -1
 
     # load runtime web assets
     util.loadAssets(siteConf['base'])
@@ -181,10 +171,27 @@ async def runApp():
               siteConf['port'])
     shutdown_event = tornado.locks.Event()
     await shutdown_event.wait()
+    return 0
 
 
 def main():
-    return asyncio.run(runApp())
+    # check command line
+    tornado.options.parse_command_line()
+    configFile = None
+    if options.config is not None:
+        if options.init:
+            _log.error('Option "config" may not be specified with "init"')
+            return -1
+        configFile = options.config
+        if not os.path.exists(options.config):
+            _log.warning('Config file not found')
+            configFile = None
+    if options.init:
+        # (re)init site from current working directory
+        if not util.initSite('.'):
+            return -1
+
+    return asyncio.run(runApp(configFile))
 
 
 if __name__ == "__main__":

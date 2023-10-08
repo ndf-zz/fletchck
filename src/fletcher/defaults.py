@@ -30,15 +30,12 @@ CONFIG = {
     'base': None,
     'port': None,
     'users': None,
-    'scheduler': None,
-    'actions': {},
-    'tests': {},
 }
 
 # Auth cookie expiry in days
 AUTHEXPIRY = 2
 
-# Number of rounds for KDF hash (currently argon2)
+# Number of rounds for KDF hash
 PASSROUNDS = 16
 
 # Number of random bits in auto-generated passkeys

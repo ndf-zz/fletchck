@@ -113,24 +113,34 @@ def loadAssets(path):
 
 
 def initSite(path):
-    """Prepare a new empty site under path"""
+    """Prepare a new empty site under path, returns True to continue"""
     if not sys.stdin.isatty():
         _log.error('Init requires user input - exiting')
-        raise RuntimeError('Input is not a tty')
+        return False
 
     # check for collision with source files
     realPath = os.path.realpath(path)
     srcPath = os.path.dirname(os.path.realpath(__file__))
     if os.path.samefile(realPath, srcPath):
         _log.error('Site path is program source')
-        raise RuntimeError('Site path is program source')
+        return False
 
-    # replace the site config dir
     backup = False
+    junkDir = None
     cfgPath = os.path.join(realPath, defaults.CONFIGPATH)
-    junkDir = mkdtemp(dir=realPath)
+
+    # check for an existing config
+    if os.path.exists(os.path.join(cfgPath,'config')):
+        prompt = 'Replace existing site? (y/N) '
+        choice = input(prompt)
+        if not choice or choice.lower()[0] != 'y':
+            _log.error('Existing site not overwritten')
+            return False
+
+    # stash old config in junk dir
     print('Creating site under %s' % (realPath))
     if os.path.exists(cfgPath):
+        junkDir = mkdtemp(dir=realPath)
         move(cfgPath, junkDir)
         backup = True
     os.mkdir(cfgPath, mode=0o700)
@@ -149,30 +159,32 @@ def initSite(path):
     siteCfg['users']['admin'] = createHash(adminPw)
     # add dummy hash for unknown users
     siteCfg['users'][''] = createHash(randPass())
-    siteCfg['schedule'] = {}
-    siteCfg['tests'] = {}
 
     # write out config
     cfgFile = os.path.join(cfgPath, 'config')
     with savefile(cfgFile) as f:
         json.dump(siteCfg, f, indent=1)
 
-    # check for backup
-    if backup:
-        prompt = 'Remove old config files? (y/N) '
-        rem = input(prompt)
-        if rem and rem.lower()[0] == 'y':
+    # check for old config
+    if junkDir is not None:
+        if backup:
             backup = False
-    if not backup:
-        print('Removing temp files from %s' % (junkDir))
-        rmtree(junkDir)
-    else:
-        print('Temp file %s not removed' % (junkDir))
+            prompt = 'Retain old config files? (y/N) '
+            choice = input(prompt)
+            if choice and choice.lower()[0] == 'y':
+                backup = True
+        if not backup:
+            rmtree(junkDir)
+        else:
+            print('Old config saved to %s' % (junkDir))
 
     # report
     print('\nSite address:\thttps://%s:%d/\nAdmin password:\t%s\n' %
           (siteCfg['host'], siteCfg['port'], adminPw))
-    input('[enter]: start  [ctrl+c]: exit ')
+    choice = input('Start? (Y/n) ')
+    if choice and choice.lower()[0] == 'n':
+        return False
+    return True
 
 
 def loadSite(cfgFile=None):
@@ -189,19 +201,19 @@ def loadSite(cfgFile=None):
                 dstCfg[k] = srcCfg[k]
             else:
                 dstCfg[k] = defaults.CONFIG[k]
+        dstCfg['scheduler'] = AsyncIOScheduler()
+        dstCfg['scheduler'].start()
+
         cfg = dstCfg
     except Exception as e:
         _log.error('%s reading config: %s', e.__class__.__name__, e)
 
-    # create and populate the scheduler
-    cfg['scheduler'] = AsyncIOScheduler()
-    cfg['scheduler'].start()
     return cfg
 
 
 def mkCert(path, hostname):
     """Call openssl to make a self-signed certificate for hostname"""
-    # TO BE REMOVED
+    # Consider removal or replacement
     _log.debug('Creating self-signed SSL cert for %r at %r', hostname, path)
     crtTmp = None
     with NamedTemporaryFile(mode='w',
