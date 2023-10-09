@@ -21,7 +21,7 @@ def loadAction(config):
         if 'description' in config and isinstance(config['description'], str):
             description = config['description']
         options = {}
-        if 'options' in config and isinstance(config['options'], str):
+        if 'options' in config and isinstance(config['options'], dict):
             options = config['options']
         ret = ACTION_TYPES[config['type']](name, description, options)
     else:

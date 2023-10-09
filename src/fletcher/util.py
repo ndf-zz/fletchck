@@ -13,6 +13,8 @@ from tempfile import NamedTemporaryFile, mkdtemp
 from logging import getLogger, DEBUG, INFO, WARNING
 from subprocess import run
 from importlib.resources import files
+from . import action
+from . import check
 from . import defaults
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -23,7 +25,7 @@ if not rmtree.avoids_symlink_attacks:
     raise RuntimeError('rmtree not supported')
 
 
-class savefile(object):
+class savefile():
     """Tempfile-backed save file contextmanager.
 
        Creates a temporary file with the desired mode and encoding
@@ -130,7 +132,7 @@ def initSite(path):
     cfgPath = os.path.join(realPath, defaults.CONFIGPATH)
 
     # check for an existing config
-    if os.path.exists(os.path.join(cfgPath,'config')):
+    if os.path.exists(os.path.join(cfgPath, 'config')):
         prompt = 'Replace existing site? (y/N) '
         choice = input(prompt)
         if not choice or choice.lower()[0] != 'y':
@@ -204,11 +206,66 @@ def loadSite(cfgFile=None):
         dstCfg['scheduler'] = AsyncIOScheduler()
         dstCfg['scheduler'].start()
 
+        # load actions
+        defact = action.action('default', 'Log', {})
+        dstCfg['actions'] = {'default': defact}
+        if 'actions' in srcCfg and isinstance(srcCfg['actions'], dict):
+            for a in srcCfg['actions']:
+                nAct = action.loadAction(srcCfg['actions'][a])
+                if nAct is not None:
+                    dstCfg['actions'][a] = nAct
+                    _log.debug('Loaded action %r = %s,%s,%s,%s', a,
+                               nAct.__class__.__name__, nAct.actionType,
+                               nAct.name, nAct.description)
+
+        # load checks
+        dstCfg['checks'] = {}
+        if 'checks' in srcCfg and isinstance(srcCfg['checks'], dict):
+            for c in srcCfg['checks']:
+                if isinstance(srcCfg['checks'][c], dict):
+                    newCheck = check.loadCheck(srcCfg['checks'][c])
+                    # add actions
+                    if 'actions' in srcCfg['checks'][c]:
+                        if isinstance(srcCfg['checks'][c]['actions'], list):
+                            for a in srcCfg['checks'][c]['actions']:
+                                if a in dstCfg['actions']:
+                                    newCheck.add_action(
+                                        a, dstCfg['actions'][a])
+                                else:
+                                    _log.info('%s ignored unknown action %s',
+                                              c, a)
+                    dstCfg['checks'][c] = newCheck
+
+        # load schedule
+        if 'schedule' in srcCfg and isinstance(srcCfg['schedule'], dict):
+            for j in srcCfg['schedule']:
+                refChk = None
+                if 'check' in srcCfg['schedule'][j]:
+                    if isinstance(srcCfg['schedule'][j]['check'], str):
+                        if srcCfg['schedule'][j]['check'] in dstCfg['checks']:
+                            refChkId = srcCfg['schedule'][j]['check']
+                            refChk = dstCfg['checks'][refChkId]
+                if refChk is not None:
+                    trigOpts = {}
+                    if 'trigger' in srcCfg['schedule'][j]:
+                        # todo: sanitise trigger options for use with fletch`
+                        if isinstance(srcCfg['schedule'][j]['trigger'], dict):
+                            trigOpts = srcCfg['schedule'][j]['trigger']
+                    dstCfg['scheduler'].add_job(refChk.update,
+                                                'interval',
+                                                id=j,
+                                                **trigOpts)
+
         cfg = dstCfg
     except Exception as e:
         _log.error('%s reading config: %s', e.__class__.__name__, e)
 
     return cfg
+
+
+def saveSite(siteCfg):
+    """Save the current site state to disk"""
+    _log.info('Save site - TODO')
 
 
 def mkCert(path, hostname):
