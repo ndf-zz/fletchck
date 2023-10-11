@@ -13,6 +13,8 @@ from tempfile import NamedTemporaryFile, mkdtemp
 from logging import getLogger, DEBUG, INFO, WARNING
 from subprocess import run
 from importlib.resources import files
+from tornado.template import BaseLoader, Template
+from tornado.web import StaticFileHandler, HTTPError
 from . import action
 from . import check
 from . import defaults
@@ -66,6 +68,75 @@ class savefile():
         return True
 
 
+class PackageLoader(BaseLoader):
+    """Tornado template loader for importlib.files"""
+
+    def resolve_path(self, name, parent_path=None):
+        return name
+
+    def _create_template(self, name):
+        template = None
+        ref = files('fletcher.templates').joinpath(name)
+        if ref.is_file():
+            with ref.open(mode='rb') as f:
+                template = Template(f.read(), name=name, loader=self)
+        else:
+            _log.error('Unable to find named resource %s in templates', name)
+        return template
+
+
+class PackageFileHandler(StaticFileHandler):
+    """Tornado static file handler for importlib.files"""
+
+    @classmethod
+    def get_absolute_path(cls, root, path):
+        """Return the absolute path from importlib"""
+        absolute_path = files('fletcher.static').joinpath(path)
+        return absolute_path
+
+    def validate_absolute_path(self, root, absolute_path):
+        """Validate and return the absolute path"""
+        if not absolute_path.is_file():
+            raise HTTPError(404)
+        return absolute_path
+
+    @classmethod
+    def get_content(cls, abspath, start=None, end=None):
+        with abspath.open('rb') as file:
+            if start is not None:
+                file.seek(start)
+            if end is not None:
+                remaining = end - (start or 0)
+            else:
+                remaining = None
+            while True:
+                chunk_size = 64 * 1024
+                if remaining is not None and remaining < chunk_size:
+                    chunk_size = remaining
+                chunk = file.read(chunk_size)
+                if chunk:
+                    if remaining is not None:
+                        remaining -= len(chunk)
+                    yield chunk
+                else:
+                    if remaining is not None:
+                        assert remaining == 0
+                    return
+
+    def set_default_headers(self, *args, **kwargs):
+        self.set_header("Content-Security-Policy",
+                        "frame-ancestors 'none'; default-src 'self'")
+        self.set_header("Strict-Transport-Security", "max-age=31536000")
+        self.set_header("X-Frame-Options", "deny")
+        self.set_header("X-Content-Type-Options", "nosniff")
+        self.set_header("X-Permitted-Cross-Domain-Policies", "none")
+        self.set_header("Referrer-Policy", "no-referrer")
+        self.set_header("Cross-Origin-Embedder-Policy", "require-corp")
+        self.set_header("Cross-Origin-Opener-Policy", "same-origin")
+        self.set_header("Cross-Origin-Resource-Policy", "same-origin")
+        self.clear_header("Server")
+
+
 def checkPass(pw, hash):
     return kdf.verify(pw, hash)
 
@@ -91,27 +162,6 @@ def randPass():
         pv.append(defaults.PASSCHARS[rawBits & mask])
         rawBits >>= depth
     return ''.join(pv)
-
-
-def loadAssets(path):
-    """Create application runtime folders"""
-    junkDir = mkdtemp(dir=path)
-    for p in ['static', 'templates']:
-        dstPath = os.path.join(path, p)
-        if os.path.exists(dstPath):
-            move(dstPath, junkDir)
-        os.mkdir(dstPath, mode=0o700)
-        srcPath = 'fletcher.' + p
-        ref = files(srcPath)
-        for f in ref.iterdir():
-            if f.is_file():
-                dstFilename = os.path.join(dstPath, f.name)
-                with f.open(mode='rb') as srcFile:
-                    with savefile(dstFilename, mode='b',
-                                  tempdir=dstPath) as dstFile:
-                        dstFile.write(srcFile.read())
-                        _log.debug('Copied package file %s to %s', f.name, p)
-    rmtree(junkDir)
 
 
 def initSite(path):

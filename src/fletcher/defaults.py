@@ -44,3 +44,9 @@ PASSBITS = 70
 # Set of chars to use for auto-generated passkeys
 # Note: Only first power of 2 used
 PASSCHARS = '0123456789abcdefghjk-pqrst+vwxyz'
+
+# SMTP check timeout
+SMTPTIMEOUT = 5
+
+# IMAP check timeout
+IMAPTIMEOUT = 5

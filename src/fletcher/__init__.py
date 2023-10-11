@@ -34,20 +34,21 @@ class Application(tornado.web.Application):
             (r"/login", AuthLoginHandler, dict(cfg=cfg)),
             (r"/logout", AuthLogoutHandler, dict(cfg=cfg)),
         ]
+        templateLoader = util.PackageLoader(whitespace='all')
         settings = dict(
             site_version=VERSION,
             site_name=cfg['name'],
             autoreload=False,
             serve_traceback=cfg['debug'],
-            template_path=os.path.join(basepath, defaults.TEMPLATEPATH),
-            static_path=os.path.join(basepath, defaults.STATICPATH),
+            static_path='static',
             static_url_prefix='/s/',
-            static_handler_class=OvrFileHandler,
+            static_handler_class=util.PackageFileHandler,
             xsrf_cookies=True,
             xsrf_cookie_kwargs={
                 'secure': True,
                 'samesite': 'Strict'
             },
+            template_loader=templateLoader,
             cookie_secret=util.token_hex(32),
             login_url='/login',
             debug=True,
@@ -57,22 +58,6 @@ class Application(tornado.web.Application):
 
 class NoResultError(Exception):
     pass
-
-
-class OvrFileHandler(tornado.web.StaticFileHandler):
-
-    def set_default_headers(self, *args, **kwargs):
-        self.set_header("Content-Security-Policy",
-                        "frame-ancestors 'none'; default-src 'self'")
-        self.set_header("Strict-Transport-Security", "max-age=31536000")
-        self.set_header("X-Frame-Options", "deny")
-        self.set_header("X-Content-Type-Options", "nosniff")
-        self.set_header("X-Permitted-Cross-Domain-Policies", "none")
-        self.set_header("Referrer-Policy", "no-referrer")
-        self.set_header("Cross-Origin-Embedder-Policy", "require-corp")
-        self.set_header("Cross-Origin-Opener-Policy", "same-origin")
-        self.set_header("Cross-Origin-Resource-Policy", "same-origin")
-        self.clear_header("Server")
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -123,6 +108,7 @@ class AuthLoginHandler(BaseHandler):
             hash = self._db['users']['']
             uv = None
 
+        # checkPass has a long execution by design
         po = await tornado.ioloop.IOLoop.current().run_in_executor(
             None, util.checkPass, pw, hash)
 
@@ -157,9 +143,6 @@ async def runApp(configFile):
     if siteConf is None:
         _log.error('Error reading site config')
         return -1
-
-    # load runtime web assets
-    util.loadAssets(siteConf['base'])
 
     # create tornado application and listen on configured hostname
     app = Application(siteConf)
