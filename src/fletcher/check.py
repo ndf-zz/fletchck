@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: MIT
-"""Check base class"""
+"""Machine check classes"""
 
 from datetime import datetime
 from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
+from smtplib import SMTP
+from imaplib import IMAP4_SSL
+import ssl
 
 _log = getLogger('check')
 _log.setLevel(DEBUG)
@@ -144,4 +147,77 @@ class check():
         }
 
 
-CHECK_TYPES['dummy'] = check
+class esmtpCheck(check):
+    """ESMTP service check
+
+      Connect to a SMTP server on the default port. Optionally
+      verify certificate with starttls.
+
+    """
+
+    def _runCheck(self):
+        """Perform the required check and return fail state"""
+        tls = True
+        if 'tls' in self.options:
+            if isinstance(self.options['tls'], bool):
+                tls = self.options['tls']
+        hostname = None
+        if 'hostname' in self.options:
+            if isinstance(self.options['hostname'], str):
+                hostname = self.options['hostname']
+
+        if hostname is None:
+            self.log.append('Invalid hostname')
+            return True
+
+        failState = True
+        try:
+            with SMTP(hostname, timeout=defaults.SMTPTIMEOUT) as s:
+                ctx = ssl.create_default_context()
+                if tls:
+                    self.log.append(repr(s.starttls(context=ctx)))
+                self.log.append(repr(s.ehlo()))
+                self.log.append(repr(s.noop()))
+                self.log.append(repr(s.quit()))
+                failState = False
+        except Exception as e:
+            self.log.append('%s: %s' % (e.__class__.__name__, e))
+
+        _log.debug('ESMTP %s, Fail=%r, log=%r', hostname, failState, self.log)
+        return failState
+
+
+class imapCheck(check):
+    """IMAP4+SSL service check
+
+      Connect to IMAP4 over SSL
+
+    """
+
+    def _runCheck(self):
+        """Perform the required check and return fail state"""
+        hostname = None
+        if 'hostname' in self.options:
+            if isinstance(self.options['hostname'], str):
+                hostname = self.options['hostname']
+
+        if hostname is None:
+            self.log.append('Invalid hostname')
+            return True
+
+        failState = True
+        try:
+            ctx = ssl.create_default_context()
+            with IMAP4_SSL(hostname, timeout=defaults.IMAPTIMEOUT) as i:
+                self.log.append(repr(i.noop()))
+                self.log.append(repr(i.logout()))
+                failState = False
+        except Exception as e:
+            self.log.append('%s: %s' % (e.__class__.__name__, e))
+
+        _log.debug('IMAP %s, Fail=%r, log=%r', hostname, failState, self.log)
+        return failState
+
+
+CHECK_TYPES['esmtp'] = esmtpCheck
+CHECK_TYPES['imap'] = imapCheck
