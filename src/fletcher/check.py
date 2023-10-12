@@ -6,6 +6,7 @@ from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 from smtplib import SMTP
 from imaplib import IMAP4_SSL
+from http.client import HTTPSConnection
 import ssl
 
 _log = getLogger('check')
@@ -18,17 +19,15 @@ def timestamp():
     return datetime.now().astimezone().isoformat()
 
 
-def loadCheck(config):
+def loadCheck(name, config):
     """Create and return a check object for the provided flat config"""
     ret = None
     if config['type'] in CHECK_TYPES:
-        name = config['type']
-        if 'name' in config and isinstance(config['name'], str):
-            name = config['name']
         options = {}
         if 'options' in config and isinstance(config['options'], dict):
             options = config['options']
         ret = CHECK_TYPES[config['type']](name, options)
+        ret.checkType = config['type']
         if 'threshold' in config and isinstance(config['threshold'], int):
             if config['threshold'] > 0:
                 ret.threshold = config['threshold']
@@ -71,9 +70,10 @@ class check():
         self.passTrigger = True
         self.threshold = 1
         self.options = options
-        self.checkType = 'dummy'
+        self.checkType = None
 
         self.actions = {}
+        self.depends = {}
 
         self.failState = False
         self.failCount = 0
@@ -92,6 +92,11 @@ class check():
 
     def update(self):
         """Run check, update state and trigger events as required"""
+        for d in self.depends:
+            if self.depends[d].failState:
+                _log.info('%s => softfail (depends=%s)', self.name, d)
+                return True
+
         curFail = self._runCheck()
         _log.debug('%s cur=%r prev=%r count=%r', self.name, curFail,
                    self.failState, self.failCount)
@@ -117,18 +122,30 @@ class check():
 
         return True
 
-    def add_action(self, name, action):
+    def add_action(self, action):
         """Add the specified action"""
-        self.actions[name] = action
+        self.actions[action.name] = action
 
     def del_action(self, name):
         """Remove the specified action"""
         if name in self.actions:
             del self.actions[name]
 
+    def add_depend(self, check):
+        """Add check to the set of dependencies"""
+        if check is not self:
+            self.depends[check.name] = check
+            _log.debug('Added %s as a dep for %s', check.name, self.name)
+
+    def del_depend(self, name):
+        """Remove check from the set of dependencies"""
+        if name in self.depends:
+            del self.depends[name]
+
     def flatten(self):
         """Return the check as a flattened dictionary"""
         actList = [a for a in self.actions]
+        depList = [d for d in self.depends]
         return {
             'name': self.name,
             'type': self.checkType,
@@ -137,6 +154,7 @@ class check():
             'passTrigger': self.passTrigger,
             'options': self.options,
             'actions': actList,
+            'depends': depList,
             'data': {
                 'failState': self.failState,
                 'failCount': self.failCount,
@@ -208,7 +226,9 @@ class imapCheck(check):
         failState = True
         try:
             ctx = ssl.create_default_context()
-            with IMAP4_SSL(hostname, timeout=defaults.IMAPTIMEOUT) as i:
+            with IMAP4_SSL(hostname,
+                           timeout=defaults.IMAPTIMEOUT,
+                           ssl_context=ctx) as i:
                 self.log.append(repr(i.noop()))
                 self.log.append(repr(i.logout()))
                 failState = False
@@ -219,5 +239,59 @@ class imapCheck(check):
         return failState
 
 
+class httpsCheck(check):
+    """HTTPS service check"""
+
+    def _runCheck(self):
+        """Perform the required check and return fail state"""
+        sni = True
+        if 'sni' in self.options:
+            if isinstance(self.options['sni'], bool):
+                sni = self.options['sni']
+        selfsigned = False
+        if 'selfsigned' in self.options:
+            if isinstance(self.options['selfsigned'], bool):
+                selfsigned = self.options['selfsigned']
+        hostname = None
+        if 'hostname' in self.options:
+            if isinstance(self.options['hostname'], str):
+                hostname = self.options['hostname']
+        #httphost = hostname
+        #if 'httphost' in self.options:
+        #if isinstance(self.options['httphost'], str):
+        #httphost = self.options['httphost']
+        port = 443
+        if 'port' in self.options:
+            if isinstance(self.options['port'], int):
+                port = self.options['port']
+
+        if hostname is None:
+            self.log.append('Invalid hostname')
+            return True
+
+        failState = True
+        try:
+            ctx = ssl.create_default_context()
+            if not sni:
+                ctx.check_hostname = False
+            if selfsigned:
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+            h = HTTPSConnection(hostname,
+                                port=port,
+                                timeout=defaults.HTTPSTIMEOUT,
+                                context=ctx)
+            h.request('HEAD', '/')
+            r = h.getresponse()
+            self.log.append(repr((r.status, r.headers.as_string())))
+            failState = False
+        except Exception as e:
+            self.log.append('%s: %s' % (e.__class__.__name__, e))
+
+        _log.debug('HTTPS %s, Fail=%r, log=%r', hostname, failState, self.log)
+        return failState
+
+
 CHECK_TYPES['esmtp'] = esmtpCheck
 CHECK_TYPES['imap'] = imapCheck
+CHECK_TYPES['https'] = httpsCheck

@@ -257,34 +257,38 @@ def loadSite(cfgFile=None):
         dstCfg['scheduler'].start()
 
         # load actions
-        defact = action.action('default', 'Log', {})
-        dstCfg['actions'] = {'default': defact}
+        dstCfg['actions'] = {}
         if 'actions' in srcCfg and isinstance(srcCfg['actions'], dict):
             for a in srcCfg['actions']:
-                nAct = action.loadAction(srcCfg['actions'][a])
+                nAct = action.loadAction(a, srcCfg['actions'][a])
                 if nAct is not None:
                     dstCfg['actions'][a] = nAct
-                    _log.debug('Loaded action %r = %s,%s,%s,%s', a,
-                               nAct.__class__.__name__, nAct.actionType,
-                               nAct.name, nAct.description)
+                    _log.debug('Load action %r (%s)', a, nAct.actionType)
 
         # load checks
         dstCfg['checks'] = {}
         if 'checks' in srcCfg and isinstance(srcCfg['checks'], dict):
             for c in srcCfg['checks']:
                 if isinstance(srcCfg['checks'][c], dict):
-                    newCheck = check.loadCheck(srcCfg['checks'][c])
+                    newCheck = check.loadCheck(c, srcCfg['checks'][c])
                     # add actions
                     if 'actions' in srcCfg['checks'][c]:
                         if isinstance(srcCfg['checks'][c]['actions'], list):
                             for a in srcCfg['checks'][c]['actions']:
                                 if a in dstCfg['actions']:
-                                    newCheck.add_action(
-                                        a, dstCfg['actions'][a])
+                                    newCheck.add_action(dstCfg['actions'][a])
                                 else:
                                     _log.info('%s ignored unknown action %s',
                                               c, a)
                     dstCfg['checks'][c] = newCheck
+                    _log.debug('Load check %r (%s)', c, newCheck.checkType)
+        # patch the check dependencies
+        for c in dstCfg['checks']:
+            if c in srcCfg['checks'] and 'depends' in srcCfg['checks'][c]:
+                if isinstance(srcCfg['checks'][c]['depends'], list):
+                    for d in srcCfg['checks'][c]['depends']:
+                        if d in dstCfg['checks']:
+                            dstCfg['checks'][c].add_depend(dstCfg['checks'][d])
 
         # load schedule
         if 'schedule' in srcCfg and isinstance(srcCfg['schedule'], dict):

@@ -50,3 +50,9 @@ SMTPTIMEOUT = 5
 
 # IMAP check timeout
 IMAPTIMEOUT = 5
+
+# HTTPS check timeout
+HTTPSTIMEOUT = 10
+
+# POST Endpoint for SMS Central API
+SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
