@@ -54,5 +54,16 @@ IMAPTIMEOUT = 5
 # HTTPS check timeout
 HTTPSTIMEOUT = 10
 
+# SSH check timeout
+SSHTIMEOUT = 2
+
 # POST Endpoint for SMS Central API
 SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
+
+
+def getOpt(key, store, valType, default=None):
+    """Return value of valType from store or default"""
+    ret = default
+    if key in store and isinstance(store[key], valType):
+        ret = store[key]
+    return ret

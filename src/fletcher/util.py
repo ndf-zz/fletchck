@@ -282,13 +282,21 @@ def loadSite(cfgFile=None):
                                               c, a)
                     dstCfg['checks'][c] = newCheck
                     _log.debug('Load check %r (%s)', c, newCheck.checkType)
-        # patch the check dependencies
+        # patch the check dependencies and any sequences
         for c in dstCfg['checks']:
             if c in srcCfg['checks'] and 'depends' in srcCfg['checks'][c]:
                 if isinstance(srcCfg['checks'][c]['depends'], list):
                     for d in srcCfg['checks'][c]['depends']:
                         if d in dstCfg['checks']:
                             dstCfg['checks'][c].add_depend(dstCfg['checks'][d])
+            if dstCfg['checks'][c].checkType == 'sequence':
+                if 'checks' in dstCfg['checks'][c].options:
+                    if isinstance(dstCfg['checks'][c].options['checks'], list):
+                        for s in dstCfg['checks'][c].options['checks']:
+                            if s in dstCfg['checks']:
+                                dstCfg['checks'][c].checks.append(
+                                    dstCfg['checks'][s])
+                                _log.debug('Adding %r to sequence %r', s, c)
 
         # load schedule
         if 'schedule' in srcCfg and isinstance(srcCfg['schedule'], dict):
@@ -301,14 +309,20 @@ def loadSite(cfgFile=None):
                             refChk = dstCfg['checks'][refChkId]
                 if refChk is not None:
                     trigOpts = {}
-                    if 'trigger' in srcCfg['schedule'][j]:
-                        # todo: sanitise trigger options for use with fletch`
-                        if isinstance(srcCfg['schedule'][j]['trigger'], dict):
-                            trigOpts = srcCfg['schedule'][j]['trigger']
-                    dstCfg['scheduler'].add_job(refChk.update,
-                                                'interval',
-                                                id=j,
-                                                **trigOpts)
+                    trigType = None
+                    if 'interval' in srcCfg['schedule'][j]:
+                        if isinstance(srcCfg['schedule'][j]['interval'], dict):
+                            trigOpts = srcCfg['schedule'][j]['interval']
+                        trigType = 'interval'
+                    elif 'cron' in srcCfg['schedule'][j]:
+                        if isinstance(srcCfg['schedule'][j]['cron'], dict):
+                            trigOpts = srcCfg['schedule'][j]['cron']
+                        trigType = 'cron'
+                    if trigType is not None:
+                        dstCfg['scheduler'].add_job(refChk.update,
+                                                    trigType,
+                                                    id=j,
+                                                    **trigOpts)
 
         cfg = dstCfg
     except Exception as e:

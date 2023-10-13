@@ -8,6 +8,8 @@ from smtplib import SMTP
 from imaplib import IMAP4_SSL
 from http.client import HTTPSConnection
 import ssl
+import socket
+import paramiko
 
 _log = getLogger('check')
 _log.setLevel(DEBUG)
@@ -23,9 +25,7 @@ def loadCheck(name, config):
     """Create and return a check object for the provided flat config"""
     ret = None
     if config['type'] in CHECK_TYPES:
-        options = {}
-        if 'options' in config and isinstance(config['options'], dict):
-            options = config['options']
+        options = defaults.getOpt('options', config, dict, {})
         ret = CHECK_TYPES[config['type']](name, options)
         ret.checkType = config['type']
         if 'threshold' in config and isinstance(config['threshold'], int):
@@ -94,7 +94,7 @@ class check():
         """Run check, update state and trigger events as required"""
         for d in self.depends:
             if self.depends[d].failState:
-                _log.info('%s => softfail (depends=%s)', self.name, d)
+                _log.info('%s => SOFTFAIL (depends=%s)', self.name, d)
                 return True
 
         curFail = self._runCheck()
@@ -105,7 +105,7 @@ class check():
             self.failCount += 1
             if self.failCount >= self.threshold:
                 if not self.failState:
-                    _log.info('%s => fail', self.name)
+                    _log.info('%s => FAIL', self.name)
                     self.failState = True
                     self.lastFail = timestamp()
                     if self.failTrigger:
@@ -114,13 +114,13 @@ class check():
             self.failCount = 0
             self.log.clear()
             if self.failState:
-                _log.info('%s => pass', self.name)
+                _log.info('%s => PASS', self.name)
                 self.failState = False
                 self.lastPass = timestamp()
                 if self.passTrigger:
                     self.notify()
 
-        return True
+        return self.failState
 
     def add_action(self, action):
         """Add the specified action"""
@@ -141,6 +141,15 @@ class check():
         """Remove check from the set of dependencies"""
         if name in self.depends:
             del self.depends[name]
+
+    def getStrOpt(self, key, default=None):
+        return defaults.getOpt(key, self.options, str, default)
+
+    def getBoolOpt(self, key, default=None):
+        return defaults.getOpt(key, self.options, bool, default)
+
+    def getIntOpt(self, key, default=None):
+        return defaults.getOpt(key, self.options, int, default)
 
     def flatten(self):
         """Return the check as a flattened dictionary"""
@@ -175,14 +184,8 @@ class esmtpCheck(check):
 
     def _runCheck(self):
         """Perform the required check and return fail state"""
-        tls = True
-        if 'tls' in self.options:
-            if isinstance(self.options['tls'], bool):
-                tls = self.options['tls']
-        hostname = None
-        if 'hostname' in self.options:
-            if isinstance(self.options['hostname'], str):
-                hostname = self.options['hostname']
+        tls = self.getBoolOpt('tls', True)
+        hostname = self.getStrOpt('hostname')
 
         if hostname is None:
             self.log.append('Invalid hostname')
@@ -191,15 +194,15 @@ class esmtpCheck(check):
         failState = True
         try:
             with SMTP(hostname, timeout=defaults.SMTPTIMEOUT) as s:
-                ctx = ssl.create_default_context()
                 if tls:
+                    ctx = ssl.create_default_context()
                     self.log.append(repr(s.starttls(context=ctx)))
                 self.log.append(repr(s.ehlo()))
                 self.log.append(repr(s.noop()))
                 self.log.append(repr(s.quit()))
                 failState = False
         except Exception as e:
-            self.log.append('%s: %s' % (e.__class__.__name__, e))
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
         _log.debug('ESMTP %s, Fail=%r, log=%r', hostname, failState, self.log)
         return failState
@@ -214,10 +217,7 @@ class imapCheck(check):
 
     def _runCheck(self):
         """Perform the required check and return fail state"""
-        hostname = None
-        if 'hostname' in self.options:
-            if isinstance(self.options['hostname'], str):
-                hostname = self.options['hostname']
+        hostname = self.getStrOpt('hostname')
 
         if hostname is None:
             self.log.append('Invalid hostname')
@@ -233,7 +233,7 @@ class imapCheck(check):
                 self.log.append(repr(i.logout()))
                 failState = False
         except Exception as e:
-            self.log.append('%s: %s' % (e.__class__.__name__, e))
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
         _log.debug('IMAP %s, Fail=%r, log=%r', hostname, failState, self.log)
         return failState
@@ -244,26 +244,10 @@ class httpsCheck(check):
 
     def _runCheck(self):
         """Perform the required check and return fail state"""
-        sni = True
-        if 'sni' in self.options:
-            if isinstance(self.options['sni'], bool):
-                sni = self.options['sni']
-        selfsigned = False
-        if 'selfsigned' in self.options:
-            if isinstance(self.options['selfsigned'], bool):
-                selfsigned = self.options['selfsigned']
-        hostname = None
-        if 'hostname' in self.options:
-            if isinstance(self.options['hostname'], str):
-                hostname = self.options['hostname']
-        #httphost = hostname
-        #if 'httphost' in self.options:
-        #if isinstance(self.options['httphost'], str):
-        #httphost = self.options['httphost']
-        port = 443
-        if 'port' in self.options:
-            if isinstance(self.options['port'], int):
-                port = self.options['port']
+        checkhostname = self.getBoolOpt('checkhostname', True)
+        selfsigned = self.getBoolOpt('selfsigned', False)
+        hostname = self.getStrOpt('hostname')
+        port = self.getIntOpt('port', 443)
 
         if hostname is None:
             self.log.append('Invalid hostname')
@@ -272,7 +256,7 @@ class httpsCheck(check):
         failState = True
         try:
             ctx = ssl.create_default_context()
-            if not sni:
+            if not checkhostname:
                 ctx.check_hostname = False
             if selfsigned:
                 ctx.check_hostname = False
@@ -286,12 +270,71 @@ class httpsCheck(check):
             self.log.append(repr((r.status, r.headers.as_string())))
             failState = False
         except Exception as e:
-            self.log.append('%s: %s' % (e.__class__.__name__, e))
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
         _log.debug('HTTPS %s, Fail=%r, log=%r', hostname, failState, self.log)
+        return failState
+
+
+class sshCheck(check):
+    """SSH service check"""
+
+    def _runCheck(self):
+        """Perform the required check and return fail state"""
+        hostname = self.getStrOpt('hostname')
+        hostkey = self.getStrOpt('hostkey')
+        port = self.getIntOpt('port', 22)
+
+        if not hostname or not port:
+            self.log.append('Invalid hostname or port')
+            return True
+
+        failState = True
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((hostname, port))
+                s.settimeout(defaults.SSHTIMEOUT)
+                t = paramiko.Transport(s)
+                t.start_client(timeout=defaults.SSHTIMEOUT)
+                hk = t.get_remote_server_key().get_base64()
+                self.log.append('%s:%d %r' % (hostname, port, hk))
+                if hostkey is not None and hostkey != hk:
+                    raise ValueError('Invalid host key %r' % (hk))
+                t.close()
+                failState = False
+        except Exception as e:
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+
+        _log.debug('SSH %s, Fail=%r, log=%r', hostname, failState, self.log)
+        return failState
+
+
+class sequenceCheck(check):
+    """Perform a sequence of checks in turn"""
+
+    def __init__(self, name, options={}):
+        super().__init__(name, options)
+        self.checks = []
+
+    def _runCheck(self):
+        failState = False
+        for c in self.checks:
+            cFail = c.update()
+            cMsg = 'PASS'
+            if cFail:
+                cMsg = 'FAIL'
+                self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
+                failState = True
+                self.log.extend(c.log)
+                self.log.append('')
+            else:
+                self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
+        _log.debug('SEQ %s, Fail=%r, log=%r', self.name, failState, self.log)
         return failState
 
 
 CHECK_TYPES['esmtp'] = esmtpCheck
 CHECK_TYPES['imap'] = imapCheck
 CHECK_TYPES['https'] = httpsCheck
+CHECK_TYPES['ssh'] = sshCheck
+CHECK_TYPES['sequence'] = sequenceCheck

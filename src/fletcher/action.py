@@ -21,9 +21,7 @@ def loadAction(name, config):
     """Return an action object for the provided config dict"""
     ret = None
     if config['type'] in ACTION_TYPES:
-        options = {}
-        if 'options' in config and isinstance(config['options'], dict):
-            options = config['options']
+        options = defaults.getOpt('options', config, dict, {})
         ret = ACTION_TYPES[config['type']](name, options)
         ret.actionType = config['type']
     else:
@@ -40,10 +38,7 @@ class action():
         self.actionType = 'log'
 
     def getStrOpt(self, key, default=None):
-        ret = default
-        if key in self.options and isinstance(self.options[key], str):
-            ret = self.options[key]
-        return ret
+        return defaults.getOpt(key, self.options, str, default)
 
     def trigger(self, source):
         """Fire the action with the provided context"""

@@ -24,6 +24,7 @@ dependencies = [
     "tornado",
     "passlib",
     "APScheduler",
+    "paramiko"
 ]
 
 [project.urls]
