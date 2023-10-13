@@ -7,7 +7,7 @@ name = "fletcher"
 version = "1.0.0a1"
 description = "Machine monitor"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 license = {text = "MIT"}
 keywords = ["system","monitor"]
 authors = [
