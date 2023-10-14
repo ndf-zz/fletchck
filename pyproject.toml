@@ -29,3 +29,6 @@ dependencies = [
 
 [project.urls]
 homepage = "https://github.com/ndf-zz/fletcher"
+
+[project.scripts]
+fletcher = "fletcher:main"
