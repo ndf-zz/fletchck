@@ -20,8 +20,10 @@ from . import check
 from . import defaults
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-_log = getLogger('util')
+_log = getLogger('fletcher.util')
 _log.setLevel(DEBUG)
+getLogger('apscheduler.executors').setLevel(WARNING)
+getLogger('apscheduler.executors.default').setLevel(WARNING)
 
 if not rmtree.avoids_symlink_attacks:
     raise RuntimeError('rmtree not supported')

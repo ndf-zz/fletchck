@@ -28,7 +28,7 @@ class Application(tornado.web.Application):
 
     def __init__(self, cfg):
         basepath = os.path.realpath(cfg['base'])
-        _log.debug('Creating application object at %r', basepath)
+        _log.debug('Creating tornado application object at %r', basepath)
         handlers = [
             (r"/", HomeHandler, dict(cfg=cfg)),
             (r"/login", AuthLoginHandler, dict(cfg=cfg)),
@@ -150,7 +150,7 @@ async def runApp(configFile):
     ssl_ctx.load_cert_chain(siteConf['cert'], siteConf['key'])
     srv = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
     srv.listen(siteConf['port'], address=siteConf['host'])
-    _log.info('Fletcher listening on: %s:%s', siteConf['host'],
+    _log.info('Fletcher listening on: https://%s:%s', siteConf['host'],
               siteConf['port'])
     shutdown_event = tornado.locks.Event()
     await shutdown_event.wait()

@@ -46,19 +46,25 @@ PASSBITS = 70
 PASSCHARS = '0123456789abcdefghjk-pqrst+vwxyz'
 
 # SMTP check timeout
-SMTPTIMEOUT = 5
+SMTPTIMEOUT = 6
+
+# Submit check timeout
+SUBMITTIMEOUT = 10
 
 # IMAP check timeout
-IMAPTIMEOUT = 5
+IMAPTIMEOUT = 6
 
 # HTTPS check timeout
 HTTPSTIMEOUT = 10
 
 # SSH check timeout
-SSHTIMEOUT = 2
+SSHTIMEOUT = 5
 
 # POST Endpoint for SMS Central API
 SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
+
+# Try action trigger this many times before giving up
+ACTIONTRIES = 3
 
 
 def getOpt(key, store, valType, default=None):

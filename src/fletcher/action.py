@@ -11,7 +11,7 @@ from email.utils import make_msgid, formatdate
 
 import ssl
 
-_log = getLogger('action')
+_log = getLogger('fletcher.action')
 _log.setLevel(DEBUG)
 
 ACTION_TYPES = {}
@@ -25,7 +25,7 @@ def loadAction(name, config):
         ret = ACTION_TYPES[config['type']](name, options)
         ret.actionType = config['type']
     else:
-        _log.warning('Invalid action type ignored')
+        _log.warning('%s: Invalid action type ignored', name)
     return ret
 
 
@@ -40,14 +40,31 @@ class action():
     def getStrOpt(self, key, default=None):
         return defaults.getOpt(key, self.options, str, default)
 
-    def trigger(self, source):
-        """Fire the action with the provided context"""
+    def getIntOpt(self, key, default=None):
+        return defaults.getOpt(key, self.options, int, default)
+
+    def getListOpt(self, key, default=None):
+        return defaults.getOpt(key, self.options, list, default)
+
+    def _notify(self, source):
         msg = 'PASS'
         since = source.lastPass
         if source.failState:
             msg = 'FAIL'
             since = source.lastFail
         _log.info('%s: %s %s @ %s', self.name, source.name, msg, since)
+        return True
+
+    def trigger(self, source):
+        count = 0
+        while True:
+            if self._notify(source):
+                break
+            count += 1
+            if count >= defaults.ACTIONTRIES:
+                _log.error('%s (%s): Fail after %r tries', self.name,
+                           self.actionType, count)
+                return False
         return True
 
     def flatten(self):
@@ -62,7 +79,7 @@ class action():
 class sendEmail(action):
     """Send email by configured submit"""
 
-    def trigger(self, source):
+    def _notify(self, source):
         if source.failState:
             subject = "[%s] %s in FAIL state" % (self.name, source.name)
             ml = []
@@ -81,30 +98,39 @@ class sendEmail(action):
         username = self.getStrOpt('username')
         password = self.getStrOpt('password')
         sender = self.getStrOpt('sender')
-        recipient = self.getStrOpt('recipient')
-        mta = self.getStrOpt('mta')
+        recipients = self.getListOpt('recipients', [])
+        hostname = self.getStrOpt('hostname')
+        port = self.getIntOpt('port', 0)
+        timeout = self.getIntOpt('timeout', defaults.SUBMITTIMEOUT)
 
-        _log.debug('Send email to %r via %r : %r', recipient, mta, subject)
-        if mta and username and recipient and sender:
+        _log.debug('Send email to %r via %r : %r', recipients, mta, subject)
+        ret = True
+        if mta and username and recipients and sender:
+            ret = False
             try:
                 msgid = make_msgid()
                 m = MIMEText(message)
                 m['From'] = sender
-                m['To'] = recipient
                 m['Subject'] = subject
                 m['Message-ID'] = msgid
                 m['Date'] = formatdate(localtime=True)
-                with SMTP_SSL(mta) as s:
+                ctx = ssl.create_default_context()
+                with SMTP_SSL(host=hostname,
+                              port=port,
+                              timeout=timeout,
+                              context=ctx) as s:
                     s.login(username, password)
-                    s.send_message(m)
+                    s.send_message(m, from_addr=sender, to_addrs=recipients)
+                ret = True
             except Exception as e:
-                _log.error('Notify failed: %s', e)
+                _log.warning('Email Notify failed: %s', e)
+        return ret
 
 
 class apiSms(action):
     """Post SMS via smscentral api"""
 
-    def trigger(self, source):
+    def _notify(self, source):
         if source.failState:
             message = "%s in FAIL state at %s" % (source.name, source.lastFail)
         else:
@@ -117,7 +143,9 @@ class apiSms(action):
         url = self.getStrOpt('url', defaults.SMSCENTRALURL)
 
         _log.debug('Send sms to %r via %r : %r', recipient, url, message)
+        ret = True
         if recipient and url:
+            ret = False
             postBody = urlencode({
                 'ACTION': 'send',
                 'USERNAME': username,
@@ -135,8 +163,14 @@ class apiSms(action):
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
                     body=postBody)
+                if response.body == b'0':
+                    ret = True
+                else:
+                    _log.warning('SMS Notify failed: %r:%r', response.code,
+                                 response.body)
             except Exception as e:
-                _log.error('Notify failed: %s', e)
+                _log.warning('SMS Notify failed: %s', e)
+        return ret
 
 
 class dbusSms(action):
