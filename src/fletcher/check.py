@@ -29,13 +29,15 @@ def loadCheck(name, config):
         options = defaults.getOpt('options', config, dict, {})
         ret = CHECK_TYPES[config['type']](name, options)
         ret.checkType = config['type']
+        if 'trigger' in config and isinstance(config['trigger'], dict):
+            ret.trigger = config['trigger']
         if 'threshold' in config and isinstance(config['threshold'], int):
             if config['threshold'] > 0:
                 ret.threshold = config['threshold']
-        if 'failTrigger' in config and isinstance(config['failTrigger'], bool):
-            ret.failTrigger = config['failTrigger']
-        if 'passTrigger' in config and isinstance(config['passTrigger'], bool):
-            ret.passTrigger = config['passTrigger']
+        if 'failAction' in config and isinstance(config['failAction'], bool):
+            ret.failAction = config['failAction']
+        if 'passAction' in config and isinstance(config['passAction'], bool):
+            ret.passAction = config['passAction']
         if 'data' in config:
             if 'failState' in config['data']:
                 if isinstance(config['data']['failState'], bool):
@@ -67,11 +69,12 @@ class check():
 
     def __init__(self, name, options={}):
         self.name = name
-        self.failTrigger = True
-        self.passTrigger = True
+        self.failAction = True
+        self.passAction = True
         self.threshold = 1
         self.options = options
         self.checkType = None
+        self.trigger = None
 
         self.actions = {}
         self.depends = {}
@@ -114,7 +117,7 @@ class check():
                 if not self.failState:
                     self.failState = True
                     self.lastFail = thisTime
-                    if self.failTrigger:
+                    if self.failAction:
                         self.notify()
         else:
             _log.info('%s (%s) PASS %s', self.name, self.checkType, thisTime)
@@ -123,7 +126,7 @@ class check():
             if self.failState:
                 self.failState = False
                 self.lastPass = thisTime
-                if self.passTrigger:
+                if self.passAction:
                     self.notify()
 
         return self.failState
@@ -164,9 +167,10 @@ class check():
         return {
             'name': self.name,
             'type': self.checkType,
+            'trigger': self.trigger,
             'threshold': self.threshold,
-            'failTrigger': self.failTrigger,
-            'passTrigger': self.passTrigger,
+            'failAction': self.failAction,
+            'passAction': self.passAction,
             'options': self.options,
             'actions': actList,
             'depends': depList,

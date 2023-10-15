@@ -281,7 +281,7 @@ def loadSite(cfgFile=None):
                                               c, a)
                     dstCfg['checks'][c] = newCheck
                     _log.debug('Load check %r (%s)', c, newCheck.checkType)
-        # patch the check dependencies and any sequences
+        # patch the check dependencies, sequences and triggers
         for c in dstCfg['checks']:
             if c in srcCfg['checks'] and 'depends' in srcCfg['checks'][c]:
                 if isinstance(srcCfg['checks'][c]['depends'], list):
@@ -296,35 +296,28 @@ def loadSite(cfgFile=None):
                                 dstCfg['checks'][c].checks.append(
                                     dstCfg['checks'][s])
                                 _log.debug('Adding %r to sequence %r', s, c)
-
-        # load schedule
-        dstCfg['schedule'] = {}
-        if 'schedule' in srcCfg and isinstance(srcCfg['schedule'], dict):
-            for j in srcCfg['schedule']:
-                refChk = None
-                if 'check' in srcCfg['schedule'][j]:
-                    if isinstance(srcCfg['schedule'][j]['check'], str):
-                        if srcCfg['schedule'][j]['check'] in dstCfg['checks']:
-                            refChkId = srcCfg['schedule'][j]['check']
-                            refChk = dstCfg['checks'][refChkId]
-                if refChk is not None:
-                    trigOpts = {}
-                    trigType = None
-                    if 'interval' in srcCfg['schedule'][j]:
-                        if isinstance(srcCfg['schedule'][j]['interval'], dict):
-                            trigOpts = srcCfg['schedule'][j]['interval']
-                        trigType = 'interval'
-                    elif 'cron' in srcCfg['schedule'][j]:
-                        if isinstance(srcCfg['schedule'][j]['cron'], dict):
-                            trigOpts = srcCfg['schedule'][j]['cron']
-                        trigType = 'cron'
-                    if trigType is not None:
-                        dstCfg['scheduler'].add_job(refChk.update,
-                                                    trigType,
-                                                    id=j,
-                                                    **trigOpts)
-                        # temporary
-                        dstCfg['schedule'][j] = srcCfg['schedule'][j]
+            if dstCfg['checks'][c].trigger is not None:
+                trigOpts = {}
+                trigType = None
+                if 'interval' in dstCfg['checks'][c].trigger:
+                    if isinstance(dstCfg['checks'][c].trigger['interval'],
+                                  dict):
+                        trigOpts = dstCfg['checks'][c].trigger['interval']
+                    trigType = 'interval'
+                elif 'cron' in dstCfg['checks'][c].trigger:
+                    if isinstance(dstCfg['checks'][c].trigger['cron'], dict):
+                        trigOpts = dstCfg['checks'][c].trigger['cron']
+                    trigType = 'cron'
+                if trigType is not None:
+                    _log.debug('Adding %s trigger to check %s: %r', trigType,
+                               c, trigOpts)
+                    dstCfg['scheduler'].add_job(dstCfg['checks'][c].update,
+                                                trigType,
+                                                id=c,
+                                                **trigOpts)
+                else:
+                    _log.info('Invalid trigger for %s ignored', c)
+                    dstCfg['checks'][c].trigger = None
 
         cfg = dstCfg
     except Exception as e:
@@ -344,9 +337,6 @@ def saveSite(siteCfg, cfgFile):
     dstCfg['checks'] = {}
     for c in siteCfg['checks']:
         dstCfg['checks'][c] = siteCfg['checks'][c].flatten()
-    dstCfg['schedule'] = {}
-    for j in siteCfg['schedule']:
-        dstCfg['schedule'][j] = siteCfg['schedule'][j]
 
     # backup existing config and save
     tmpName = cfgFile + token_hex(6)
