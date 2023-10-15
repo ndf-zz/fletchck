@@ -11,6 +11,7 @@ from tornado.options import define, options
 from . import util
 from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, basicConfig
+from signal import SIGTERM
 
 VERSION = '1.0.0a1'
 
@@ -22,6 +23,7 @@ _log.setLevel(DEBUG)
 # Command line options
 define("config", default=None, help="specify site config file", type=str)
 define("init", default=False, help="re-initialise system", type=bool)
+define("webui", default=True, help="run web ui", type=bool)
 
 
 class Application(tornado.web.Application):
@@ -133,48 +135,90 @@ class AuthLogoutHandler(BaseHandler):
         self.redirect(self.get_argument("next", "/"))
 
 
-async def runApp(configFile):
-    # initialise site
-    siteConf = None
-    if configFile is None:
-        configFile = os.path.join(defaults.CONFIGPATH, 'config')
-    if os.path.exists(configFile):
-        siteConf = util.loadSite(configFile)
-    if siteConf is None:
-        _log.error('Error reading site config')
-        return -1
+class FletchSite():
+    """Wrapper object for a single fletcher site instance"""
 
-    # create tornado application and listen on configured hostname
-    app = Application(siteConf)
-    ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    ssl_ctx.load_cert_chain(siteConf['cert'], siteConf['key'])
-    srv = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
-    srv.listen(siteConf['port'], address=siteConf['host'])
-    _log.info('Fletcher listening on: https://%s:%s', siteConf['host'],
-              siteConf['port'])
-    shutdown_event = tornado.locks.Event()
-    await shutdown_event.wait()
-    return 0
+    def __init__(self):
+        self._configFile = None
+        self._config = {}
+        self._shutdown = None
+        self._webUi = True
+        self._srv = None
+
+    def _sigterm(self):
+        """Handle TERM signal"""
+        _log.info('Site terminated by SIGTERM')
+        self._shutdown.set()
+
+    def loadConfig(self):
+        """Load site from config"""
+        if self._configFile is None:
+            self._configFile = os.path.join(defaults.CONFIGPATH, 'config')
+        if os.path.exists(self._configFile):
+            self._config = util.loadSite(self._configFile)
+
+    def saveConfig(self):
+        """Save site to config"""
+        util.saveSite(self._config, self._configFile)
+
+    def selectConfig(self):
+        """Check command line and choose configuration"""
+        tornado.options.parse_command_line()
+        if options.config is not None:
+            if options.init:
+                _log.error('Option "config" may not be specified with "init"')
+                return -1
+            self._configFile = options.config
+            if not os.path.exists(options.config):
+                _log.warning('Config file not found')
+                self._configFile = None
+        if options.init:
+            # (re)init site from current working directory
+            if not util.initSite('.'):
+                return -1
+        if not options.webui:
+            _log.info('Web UI disabled by command line option')
+            self._webUi = False
+
+    async def run(self):
+        """Load and run site in async loop"""
+        self.loadConfig()
+        if self._config is None:
+            _log.error('Error reading site config')
+            return -1
+
+        # Add TERM handler
+        self._shutdown = asyncio.Event()
+        asyncio.get_running_loop().add_signal_handler(SIGTERM, self._sigterm)
+
+        # create tornado application and listen on configured hostname
+        if self._webUi:
+            app = Application(self._config)
+            ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+            ssl_ctx.load_cert_chain(self._config['cert'], self._config['key'])
+            srv = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
+            srv.listen(self._config['port'], address=self._config['host'])
+            _log.info('Web UI listening on: https://%s:%s',
+                      self._config['host'], self._config['port'])
+            self._srv = srv
+
+        try:
+            await self._shutdown.wait()
+            self.saveConfig()
+            if self._srv is not None:
+                _log.info('Shutting down web ui')
+                self._srv.stop()
+                await self._srv.close_all_connections()
+        except Exception as e:
+            _log.error('run %s: %s', e.__class__.__name__, e)
+
+        return 0
 
 
 def main():
-    # check command line
-    tornado.options.parse_command_line()
-    configFile = None
-    if options.config is not None:
-        if options.init:
-            _log.error('Option "config" may not be specified with "init"')
-            return -1
-        configFile = options.config
-        if not os.path.exists(options.config):
-            _log.warning('Config file not found')
-            configFile = None
-    if options.init:
-        # (re)init site from current working directory
-        if not util.initSite('.'):
-            return -1
-
-    return asyncio.run(runApp(configFile))
+    site = FletchSite()
+    site.selectConfig()
+    return asyncio.run(site.run())
 
 
 if __name__ == "__main__":

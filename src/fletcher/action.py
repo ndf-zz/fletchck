@@ -69,11 +69,7 @@ class action():
 
     def flatten(self):
         """Return the action detail as a flattened dictionary"""
-        return {
-            'name': self.name,
-            'options': self.options,
-            'type': self.actionType
-        }
+        return {'type': self.actionType, 'options': self.options}
 
 
 class sendEmail(action):

@@ -26,8 +26,7 @@ getLogger('apscheduler.executors').setLevel(WARNING)
 getLogger('apscheduler.executors.default').setLevel(WARNING)
 
 
-
-class savefile():
+class SaveFile():
     """Tempfile-backed save file contextmanager.
 
        Creates a temporary file with the desired mode and encoding
@@ -214,7 +213,7 @@ def initSite(path):
 
     # write out config
     cfgFile = os.path.join(cfgPath, 'config')
-    with savefile(cfgFile) as f:
+    with SaveFile(cfgFile) as f:
         json.dump(siteCfg, f, indent=1)
 
     # check for old config
@@ -299,6 +298,7 @@ def loadSite(cfgFile=None):
                                 _log.debug('Adding %r to sequence %r', s, c)
 
         # load schedule
+        dstCfg['schedule'] = {}
         if 'schedule' in srcCfg and isinstance(srcCfg['schedule'], dict):
             for j in srcCfg['schedule']:
                 refChk = None
@@ -323,6 +323,8 @@ def loadSite(cfgFile=None):
                                                     trigType,
                                                     id=j,
                                                     **trigOpts)
+                        # temporary
+                        dstCfg['schedule'][j] = srcCfg['schedule'][j]
 
         cfg = dstCfg
     except Exception as e:
@@ -331,9 +333,27 @@ def loadSite(cfgFile=None):
     return cfg
 
 
-def saveSite(siteCfg):
+def saveSite(siteCfg, cfgFile):
     """Save the current site state to disk"""
-    _log.info('Save site - TODO')
+    dstCfg = {}
+    for k in defaults.CONFIG:
+        dstCfg[k] = siteCfg[k]
+    dstCfg['actions'] = {}
+    for a in siteCfg['actions']:
+        dstCfg['actions'][a] = siteCfg['actions'][a].flatten()
+    dstCfg['checks'] = {}
+    for c in siteCfg['checks']:
+        dstCfg['checks'][c] = siteCfg['checks'][c].flatten()
+    dstCfg['schedule'] = {}
+    for j in siteCfg['schedule']:
+        dstCfg['schedule'][j] = siteCfg['schedule'][j]
+
+    # backup existing config and save
+    tmpName = cfgFile + token_hex(6)
+    os.link(cfgFile, tmpName)
+    with SaveFile(cfgFile) as f:
+        json.dump(dstCfg, f, indent=1)
+    os.rename(tmpName, cfgFile + '.bak')
 
 
 def mkCert(path, hostname):
