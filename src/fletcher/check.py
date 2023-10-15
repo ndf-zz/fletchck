@@ -204,7 +204,7 @@ class submitCheck(check):
                 self.log.append(repr(s.quit()))
                 failState = False
         except Exception as e:
-            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
@@ -237,7 +237,7 @@ class smtpCheck(check):
                 self.log.append(repr(s.quit()))
                 failState = False
         except Exception as e:
-            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
@@ -269,7 +269,7 @@ class imapCheck(check):
                 self.log.append(repr(i.logout()))
                 failState = False
         except Exception as e:
-            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
@@ -286,6 +286,8 @@ class httpsCheck(check):
         port = self.getIntOpt('port')
         timeout = self.getIntOpt('timeout', defaults.HTTPSTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
+        reqType = self.getStrOpt('request', 'HEAD')
+        reqPath = self.getStrOpt('path', '/')
 
         failState = True
         try:
@@ -297,12 +299,12 @@ class httpsCheck(check):
                                 port=port,
                                 timeout=defaults.HTTPSTIMEOUT,
                                 context=ctx)
-            h.request('HEAD', '/')
+            h.request(reqType, reqPath)
             r = h.getresponse()
             self.log.append(repr((r.status, r.headers.as_string())))
             failState = False
         except Exception as e:
-            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 
@@ -335,7 +337,7 @@ class sshCheck(check):
                 self.log.append('close: %r' % (t.close()))
                 failState = False
         except Exception as e:
-            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
 

@@ -25,8 +25,6 @@ _log.setLevel(DEBUG)
 getLogger('apscheduler.executors').setLevel(WARNING)
 getLogger('apscheduler.executors.default').setLevel(WARNING)
 
-if not rmtree.avoids_symlink_attacks:
-    raise RuntimeError('rmtree not supported')
 
 
 class savefile():
@@ -227,7 +225,7 @@ def initSite(path):
             choice = input(prompt)
             if choice and choice.lower()[0] == 'y':
                 backup = True
-        if not backup:
+        if not backup and rmtree.avoids_symlink_attacks:
             rmtree(junkDir)
         else:
             print('Old config saved to %s' % (junkDir))

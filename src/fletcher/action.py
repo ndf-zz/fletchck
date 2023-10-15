@@ -103,9 +103,10 @@ class sendEmail(action):
         port = self.getIntOpt('port', 0)
         timeout = self.getIntOpt('timeout', defaults.SUBMITTIMEOUT)
 
-        _log.debug('Send email to %r via %r : %r', recipients, mta, subject)
+        _log.debug('Send email to %r via %r : %r', recipients, hostname,
+                   subject)
         ret = True
-        if mta and username and recipients and sender:
+        if hostname and username and recipients and sender:
             ret = False
             try:
                 msgid = make_msgid()
