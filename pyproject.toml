@@ -3,7 +3,7 @@ requires = ["setuptools>=62"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fletcher"
+name = "fletchck"
 version = "1.0.0a1"
 description = "Machine monitor"
 readme = "README.md"
@@ -28,7 +28,7 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://github.com/ndf-zz/fletcher"
+homepage = "https://github.com/ndf-zz/fletchck"
 
 [project.scripts]
-fletcher = "fletcher:main"
+fletchck = "fletchck:main"

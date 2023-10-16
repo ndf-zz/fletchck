@@ -2,7 +2,7 @@
 """Site defaults"""
 
 # Default application vanity label
-APPNAME = 'Fletcher'
+APPNAME = 'Fletchck'
 
 # Hostname or IP to listen on
 HOSTNAME = 'localhost'

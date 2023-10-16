@@ -11,7 +11,7 @@ from paramiko.transport import Transport as SSH
 import ssl
 import socket
 
-_log = getLogger('fletcher.check')
+_log = getLogger('fletchck.check')
 _log.setLevel(DEBUG)
 getLogger('paramiko.transport').setLevel(WARNING)
 

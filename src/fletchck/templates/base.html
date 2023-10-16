@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
  <!--
-   Fletcher - Machine Monitor
+   Fletchck - Machine Monitor
    MIT License Copyright (c) 2023
    Version: {{ escape(handler.settings["site_version"]) }}
  -->
@@ -13,13 +13,12 @@
         content="{{ escape(handler.settings["site_name"]) }}">
   <meta name="description" content="Machine Monitor">
   <title>{{ escape(handler.settings["site_name"]) }}</title>
-  <link href="{{ static_url("fletcher.svg") }}"
-        integrity="sha384-8aNXkjN3s3jQFImBhE5Alwo+pSNw6rTj2UuFMkOaphItqw5JfdGjW2RimJWdq5Dm"
+  <link href="{{ static_url("fletchck.svg") }}"
         rel="icon">
   <link href="{{ static_url("bootstrap.min.css") }}"
         integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9"
         rel="stylesheet">
-  <link href="{{ static_url("fletcher.css") }}"
+  <link href="{{ static_url("fletchck.css") }}"
         rel="stylesheet">
   {% block header %}{% end %}
  </head>

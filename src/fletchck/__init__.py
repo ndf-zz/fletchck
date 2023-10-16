@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""Fletcher application class"""
+"""Fletchck application class"""
 
 import asyncio
 import os.path
@@ -17,7 +17,7 @@ VERSION = '1.0.0a1'
 
 # TEMP
 basicConfig(level=DEBUG)
-_log = getLogger('fletcher')
+_log = getLogger('fletchck')
 _log.setLevel(DEBUG)
 
 # Command line options
@@ -136,7 +136,7 @@ class AuthLogoutHandler(BaseHandler):
 
 
 class FletchSite():
-    """Wrapper object for a single fletcher site instance"""
+    """Wrapper object for a single fletchck site instance"""
 
     def __init__(self):
         self._configFile = None

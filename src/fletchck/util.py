@@ -20,7 +20,7 @@ from . import check
 from . import defaults
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-_log = getLogger('fletcher.util')
+_log = getLogger('fletchck.util')
 _log.setLevel(DEBUG)
 getLogger('apscheduler.executors').setLevel(WARNING)
 getLogger('apscheduler.executors.default').setLevel(WARNING)
@@ -75,7 +75,7 @@ class PackageLoader(BaseLoader):
 
     def _create_template(self, name):
         template = None
-        ref = files('fletcher.templates').joinpath(name)
+        ref = files('fletchck.templates').joinpath(name)
         if ref.is_file():
             with ref.open(mode='rb') as f:
                 template = Template(f.read(), name=name, loader=self)
@@ -90,7 +90,7 @@ class PackageFileHandler(StaticFileHandler):
     @classmethod
     def get_absolute_path(cls, root, path):
         """Return the absolute path from importlib"""
-        absolute_path = files('fletcher.static').joinpath(path)
+        absolute_path = files('fletchck.static').joinpath(path)
         return absolute_path
 
     def validate_absolute_path(self, root, absolute_path):
