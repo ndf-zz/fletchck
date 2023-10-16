@@ -39,9 +39,9 @@ class Application(tornado.web.Application):
         templateLoader = util.PackageLoader(whitespace='all')
         settings = dict(
             site_version=VERSION,
-            site_name=cfg['name'],
+            site_name=cfg['webui']['name'],
             autoreload=False,
-            serve_traceback=cfg['debug'],
+            serve_traceback=cfg['webui']['debug'],
             static_path='static',
             static_url_prefix='/s/',
             static_handler_class=util.PackageFileHandler,
@@ -103,11 +103,11 @@ class AuthLoginHandler(BaseHandler):
         pw = self.get_argument('password', '')
         hash = None
         uv = None
-        if un and un in self._db['users']:
-            hash = self._db['users'][un]
+        if un and un in self._db['webui']['users']:
+            hash = self._db['webui']['users'][un]
             uv = un
         else:
-            hash = self._db['users']['']
+            hash = self._db['webui']['users']['']
             uv = None
 
         # checkPass has a long execution by design
@@ -153,7 +153,7 @@ class FletchSite():
     def loadConfig(self):
         """Load site from config"""
         if self._configFile is None:
-            self._configFile = os.path.join(defaults.CONFIGPATH, 'config')
+            self._configFile = defaults.CONFIGPATH
         if os.path.exists(self._configFile):
             self._config = util.loadSite(self._configFile)
 
@@ -167,7 +167,7 @@ class FletchSite():
         if options.config is not None:
             if options.init:
                 _log.error('Option "config" may not be specified with "init"')
-                return -1
+                return False
             self._configFile = options.config
             if not os.path.exists(options.config):
                 _log.warning('Config file not found')
@@ -175,10 +175,11 @@ class FletchSite():
         if options.init:
             # (re)init site from current working directory
             if not util.initSite('.'):
-                return -1
+                return False
         if not options.webui:
             _log.info('Web UI disabled by command line option')
             self._webUi = False
+        return True
 
     async def run(self):
         """Load and run site in async loop"""
@@ -192,15 +193,21 @@ class FletchSite():
         asyncio.get_running_loop().add_signal_handler(SIGTERM, self._sigterm)
 
         # create tornado application and listen on configured hostname
-        if self._webUi:
+        if self._webUi and 'webui' in self._config and isinstance(
+                self._config['webui'], dict):
             app = Application(self._config)
             ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ssl_ctx.load_cert_chain(self._config['cert'], self._config['key'])
+            ssl_ctx.load_cert_chain(self._config['webui']['cert'],
+                                    self._config['webui']['key'])
             srv = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
-            srv.listen(self._config['port'], address=self._config['host'])
+            srv.listen(self._config['webui']['port'],
+                       address=self._config['webui']['host'])
             _log.info('Web UI listening on: https://%s:%s',
-                      self._config['host'], self._config['port'])
+                      self._config['webui']['host'],
+                      self._config['webui']['port'])
             self._srv = srv
+        else:
+            _log.info('Running without webui')
 
         try:
             await self._shutdown.wait()
@@ -217,8 +224,8 @@ class FletchSite():
 
 def main():
     site = FletchSite()
-    site.selectConfig()
-    return asyncio.run(site.run())
+    if site.selectConfig():
+        return asyncio.run(site.run())
 
 
 if __name__ == "__main__":

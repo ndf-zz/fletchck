@@ -1,8 +1,8 @@
 # fletchck
 
-Fletchck is a self-contained service monitor.
-It provides a suite of simple internet service probes
-called "checks", with flexible scheduling provided by
+Fletchck is a self-contained network service monitor.
+It provides a suite of simple internet service
+checks with flexible scheduling provided by
 [APScheduler](https://apscheduler.readthedocs.io/en/master/).
 Service checks trigger notification actions
 as they transition from pass to fail or vice-versa.
@@ -39,16 +39,6 @@ directory with the -init option:
 
 	$ ./venv/bin/fletchck -init
 
-Follow the prompts to start the newly created service,
-or start using the configuration file path:
-
-	$ ./venv/bin/fletchck --config=config/config
-
-To run without a web user interface, use the --webui
-command line option:
-
-	$ ./venv/bin/fletchck --webui=false
-
 ## Requirements
 
    - python > 3.9
@@ -60,19 +50,30 @@ command line option:
 
 ## Configuration
 
-Configuration is read from a JSON encoded dict object
-with the following keys and values:
+Configuration is read from a JSON encoded dictionary
+object with the following keys and values:
 
 key | type | description
 --- | --- | ---
+base | str | Full path to site configuration file
 webui | dict | Web user interface configuration (see Web UI below)
 actions | dict | Notification actions (see Actions below)
 checks | dict | Service checks (see Checks below)
 
+Notes:
+
+   - All toplevel keys are optional
+   - If webui is not present or null, the web user interface
+     will not be started.
+   - Action and check names may be any string that can be used
+     as a dictionary key and that can be serialised in JSON.
+   - Duplicate action and check names will overwrite earlier
+     definitions with the same name.
+
 ### Actions
 
-Each key in the actions dict names a notification
-action dict with the following keys and values:
+Each key in the actions dictionary names a notification
+action dictionary with the following keys and values:
 
 key | type | description
 --- | --- | ---
@@ -96,9 +97,16 @@ Notes:
 
    - The log action does not recognise any options
 
+Example:
+
+	"actions": { "test action": { "type": "log" } }
+
+Define a single action of type "log"
+called "test action".
+
 ### Checks
 
-Each key in the checks dict names a service check
+Each key in the checks dictionary names a service check
 with the following keys and values:
 
 key | type | description
@@ -121,18 +129,36 @@ TODO
 option | type | checks | description
 --- | --- | --- | ---
 
-### Example
+Example:
 
-The follwing configuration might describe a setup with no
-web ui that runs a set of checks for a single
-site with a web site and SMTP, IMAP services behind a router.
+	"checks": {
+	 "Home Cert": {
+	  "type": "cert",
+	  "passAction": false,
+	  "trigger": { "cron": {"day": 1, "hour": 1} },
+	  "options": { "hostname": "home.place.com" },
+	  "actions": [ "Tell Alice" ]
+	 }
+	}
+
+Define a single check named "Home Cert" which performs
+a certificate verification check on the host "home.place.com"
+at 1:00 am on the first of each month, and notifies using
+the action named "Tell Alice" on transition to fail.
+
+
+### Example Config
+
+The following complete configuration describes
+a fletchck site with no web ui that runs a set
+of checks for a single site with a web site and
+SMTP, IMAP services behind a router.
 Router connectivity is checked every 5 minutes while
 the other services are checked in a sequence once per hour
 during the day. Failures of the router will trigger
 an sms, while service failures send an email.
 
 	{
-	 "webui": null,
 	 "actions": {
 	  "sms-admin": {
 	   "type": "sms",
@@ -187,7 +213,7 @@ check may have one optional trigger of type interval or cron.
 The check is scheduled to be run at a repeating interval
 of the specified number of weeks, days, hours, minutes
 and seconds. Optionally provide a start time and jitter
-to adjust the initial trigger and a random execution delay.
+to adjust the initial trigger and add a random execution delay.
 
 For example, a trigger that runs every 10 minutes
 with a 20 second jitter:
@@ -201,12 +227,10 @@ Interval reference: [apscheduler.triggers.interval](https://apscheduler.readthed
 
 ### Cron
 
-The configured check is triggered
-by UNIX cron style time fields (year,
-month, day, hour, minute, second etc).
-For example, to define a trigger
-that is run at 5, 25 and 45 minutes past
-the hour between 5am and 8pm every day:
+The configured check is triggered by UNIX cron style
+time fields (year, month, day, hour, minute, second etc).
+For example, to define a trigger that is run at 5, 25
+and 45 minutes past the hour between 5am and 8pm every day:
 
 	"cron": {
 	 "hour": "5-20",

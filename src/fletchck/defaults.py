@@ -7,27 +7,20 @@ APPNAME = 'Fletchck'
 # Hostname or IP to listen on
 HOSTNAME = 'localhost'
 
-# Path to configuration from site base
+# Configuration filename
 CONFIGPATH = 'config'
-
-# Path to application static files from site base
-STATICPATH = 'static'
-
-# Path to html template files from site base
-TEMPLATEPATH = 'templates'
 
 # SSL cert & key file names, stored in site config
 SSLCERT = 'cert'
 SSLKEY = 'key'
 
-# Site config skeleton
-CONFIG = {
+# Web UI config skeleton
+WEBUICONFIG = {
     'debug': True,
     'cert': None,
     'key': None,
     'host': HOSTNAME,
     'name': APPNAME,
-    'base': None,
     'port': None,
     'users': None,
 }

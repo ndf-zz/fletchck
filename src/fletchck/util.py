@@ -6,7 +6,6 @@ import sys
 import json
 import struct
 import math
-from shutil import move, rmtree
 from secrets import randbits, token_hex
 from passlib.hash import argon2 as kdf
 from tempfile import NamedTemporaryFile, mkdtemp
@@ -163,75 +162,75 @@ def randPass():
     return ''.join(pv)
 
 
+def saveSite(siteCfg, cfgFile):
+    """Save the current site state to disk"""
+    dstCfg = {'base': None, 'webui': None}
+    if 'base' in siteCfg and isinstance(siteCfg['base'], str):
+        dstCfg['base'] = siteCfg['base']
+    if 'webui' in siteCfg and siteCfg['webui'] is not None:
+        dstCfg['webui'] = {}
+        for k in defaults.WEBUICONFIG:
+            dstCfg['webui'][k] = siteCfg['webui'][k]
+    dstCfg['actions'] = {}
+    for a in siteCfg['actions']:
+        dstCfg['actions'][a] = siteCfg['actions'][a].flatten()
+    dstCfg['checks'] = {}
+    for c in siteCfg['checks']:
+        dstCfg['checks'][c] = siteCfg['checks'][c].flatten()
+
+    # backup existing config and save
+    tmpName = None
+    if os.path.exists(cfgFile):
+        tmpName = cfgFile + token_hex(6)
+        os.link(cfgFile, tmpName)
+    with SaveFile(cfgFile) as f:
+        json.dump(dstCfg, f, indent=1)
+    if tmpName is not None:
+        os.rename(tmpName, cfgFile + '.bak')
+
+
 def initSite(path):
     """Prepare a new empty site under path, returns True to continue"""
     if not sys.stdin.isatty():
         _log.error('Init requires user input - exiting')
         return False
 
-    # check for collision with source files
-    realPath = os.path.realpath(path)
-    srcPath = os.path.dirname(os.path.realpath(__file__))
-    if os.path.samefile(realPath, srcPath):
-        _log.error('Site path is program source')
-        return False
-
+    cfgPath = os.path.realpath(path)
+    cfgFile = os.path.join(cfgPath, defaults.CONFIGPATH)
     backup = False
-    junkDir = None
-    cfgPath = os.path.join(realPath, defaults.CONFIGPATH)
 
     # check for an existing config
-    if os.path.exists(os.path.join(cfgPath, 'config')):
+    if os.path.exists(cfgFile):
         prompt = 'Replace existing site? (y/N) '
         choice = input(prompt)
         if not choice or choice.lower()[0] != 'y':
             _log.error('Existing site not overwritten')
             return False
 
-    # stash old config in junk dir
-    print('Creating site under %s' % (realPath))
-    if os.path.exists(cfgPath):
-        junkDir = mkdtemp(dir=realPath)
-        move(cfgPath, junkDir)
-        backup = True
-    os.mkdir(cfgPath, mode=0o700)
-
     # create initial configuration
-    siteCfg = dict(defaults.CONFIG)
-    siteCfg['base'] = realPath
-    siteCfg['port'] = 30000 + randbits(15)
-    mkCert(cfgPath, siteCfg['host'])
-    siteCfg['cert'] = os.path.join(cfgPath, 'cert')
-    siteCfg['key'] = os.path.join(cfgPath, 'key')
+    siteCfg = {}
+    siteCfg['base'] = cfgPath
+    siteCfg['webui'] = dict(defaults.WEBUICONFIG)
+    siteCfg['webui']['port'] = 30000 + randbits(15)
+    mkCert(cfgPath, siteCfg['webui']['host'])
+    siteCfg['webui']['cert'] = os.path.join(cfgPath, 'cert')
+    siteCfg['webui']['key'] = os.path.join(cfgPath, 'key')
+    siteCfg['actions'] = {}
+    siteCfg['checks'] = {}
 
     # create admin user
-    siteCfg['users'] = {}
+    siteCfg['webui']['users'] = {}
     adminPw = randPass()
-    siteCfg['users']['admin'] = createHash(adminPw)
+    siteCfg['webui']['users']['admin'] = createHash(adminPw)
     # add dummy hash for unknown users
-    siteCfg['users'][''] = createHash(randPass())
+    siteCfg['webui']['users'][''] = createHash(randPass())
 
-    # write out config
-    cfgFile = os.path.join(cfgPath, 'config')
-    with SaveFile(cfgFile) as f:
-        json.dump(siteCfg, f, indent=1)
-
-    # check for old config
-    if junkDir is not None:
-        if backup:
-            backup = False
-            prompt = 'Retain old config files? (y/N) '
-            choice = input(prompt)
-            if choice and choice.lower()[0] == 'y':
-                backup = True
-        if not backup and rmtree.avoids_symlink_attacks:
-            rmtree(junkDir)
-        else:
-            print('Old config saved to %s' % (junkDir))
+    # saveconfig
+    saveSite(siteCfg, cfgFile)
 
     # report
     print('\nSite address:\thttps://%s:%d/\nAdmin password:\t%s\n' %
-          (siteCfg['host'], siteCfg['port'], adminPw))
+          (siteCfg['webui']['host'], siteCfg['webui']['port'], adminPw))
     choice = input('Start? (Y/n) ')
     if choice and choice.lower()[0] == 'n':
         return False
@@ -245,13 +244,17 @@ def loadSite(cfgFile=None):
         srcCfg = None
         with open(cfgFile) as f:
             srcCfg = json.load(f)
-        dstCfg = {}
-        for k in defaults.CONFIG:
-            if k in srcCfg:
-                # todo - properly check input
-                dstCfg[k] = srcCfg[k]
-            else:
-                dstCfg[k] = defaults.CONFIG[k]
+        dstCfg = {'base': None, 'webui': None}
+        if 'base' in srcCfg and isinstance(srcCfg['base'], str):
+            dstCfg['base'] = srcCfg['base']
+        if 'webui' in srcCfg and isinstance(srcCfg['webui'], dict):
+            dstCfg['webui'] = {}
+            for k in defaults.WEBUICONFIG:
+                if k in srcCfg['webui']:
+                    # todo - properly check input
+                    dstCfg['webui'][k] = srcCfg['webui'][k]
+                else:
+                    dstCfg['webui'][k] = defaults.WEBUICONFIG[k]
         dstCfg['scheduler'] = AsyncIOScheduler()
         dstCfg['scheduler'].start()
 
@@ -324,26 +327,6 @@ def loadSite(cfgFile=None):
         _log.error('%s reading config: %s', e.__class__.__name__, e)
 
     return cfg
-
-
-def saveSite(siteCfg, cfgFile):
-    """Save the current site state to disk"""
-    dstCfg = {}
-    for k in defaults.CONFIG:
-        dstCfg[k] = siteCfg[k]
-    dstCfg['actions'] = {}
-    for a in siteCfg['actions']:
-        dstCfg['actions'][a] = siteCfg['actions'][a].flatten()
-    dstCfg['checks'] = {}
-    for c in siteCfg['checks']:
-        dstCfg['checks'][c] = siteCfg['checks'][c].flatten()
-
-    # backup existing config and save
-    tmpName = cfgFile + token_hex(6)
-    os.link(cfgFile, tmpName)
-    with SaveFile(cfgFile) as f:
-        json.dump(dstCfg, f, indent=1)
-    os.rename(tmpName, cfgFile + '.bak')
 
 
 def mkCert(path, hostname):
