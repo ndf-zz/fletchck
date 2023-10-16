@@ -60,6 +60,9 @@ HTTPSTIMEOUT = 10
 # SSH check timeout
 SSHTIMEOUT = 5
 
+# Certificate check timeout
+CERTTIMEOUT = 5
+
 # TLS certificate expiry pre-failure in days
 CERTEXPIRYDAYS = 7
 

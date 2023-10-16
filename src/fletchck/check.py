@@ -8,6 +8,7 @@ from smtplib import SMTP, SMTP_SSL
 from imaplib import IMAP4_SSL, IMAP4_SSL_PORT
 from http.client import HTTPSConnection
 from paramiko.transport import Transport as SSH
+from cryptography import x509
 import ssl
 import socket
 
@@ -299,6 +300,59 @@ class imapCheck(check):
         return failState
 
 
+class certCheck(check):
+    """TLS Certificate check"""
+
+    def _runCheck(self):
+        hostname = self.getStrOpt('hostname')
+        port = self.getIntOpt('port')
+        timeout = self.getIntOpt('timeout', defaults.CERTTIMEOUT)
+        selfsigned = self.getBoolOpt('selfsigned', False)
+        probe = self.getStrOpt('probe')
+
+        failState = True
+        try:
+            if not selfsigned:
+                # do full TLS negotiation
+                ctx = ssl.create_default_context()
+                conn = ctx.wrap_socket(socket.socket(socket.AF_INET),
+                                       server_hostname=hostname)
+                conn.settimeout(timeout)
+                conn.connect((hostname, port))
+                certExpiry(conn.getpeercert())
+                if probe is not None:
+                    self.log.append(
+                        'send: %r, %r' %
+                        (probe, conn.sendall(probe.encode('utf-8'))))
+                    self.log.append('recv: %r' % (conn.recv(1024)))
+                conn.shutdown(socket.SHUT_RDWR)
+                conn.close()
+            else:
+                pemCert = ssl.get_server_certificate(addr=(hostname, port))
+                #pemCert = ssl.get_server_certificate(addr=(hostname, port), timeout=timeout)
+                cert = x509.load_pem_x509_certificate(pemCert.encode('ascii'))
+                expiry = cert.not_valid_after.timestamp()
+                nowsecs = datetime.now().timestamp()
+                daysLeft = (expiry - nowsecs) // 86400
+                _log.debug('Certificate %r expiry %r: %d days', hostname,
+                           cert.not_valid_after.astimezone().isoformat(),
+                           daysLeft)
+                if daysLeft < defaults.CERTEXPIRYDAYS:
+                    raise ssl.SSLCertVerificationError(
+                        'Certificate expires in %d days' % (daysLeft))
+                _log.debug('%s (%s) %s: Certificate not verified', self.name,
+                           self.checkType, hostname)
+            failState = False
+        except Exception as e:
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
+                       hostname, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, hostname,
+                   failState)
+        return failState
+
+
 class httpsCheck(check):
     """HTTPS service check"""
 
@@ -393,6 +447,7 @@ class sequenceCheck(check):
         return failState
 
 
+CHECK_TYPES['cert'] = certCheck
 CHECK_TYPES['smtp'] = smtpCheck
 CHECK_TYPES['submit'] = submitCheck
 CHECK_TYPES['imap'] = imapCheck
