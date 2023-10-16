@@ -60,6 +60,9 @@ HTTPSTIMEOUT = 10
 # SSH check timeout
 SSHTIMEOUT = 5
 
+# TLS certificate expiry pre-failure in days
+CERTEXPIRYDAYS = 7
+
 # POST Endpoint for SMS Central API
 SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
 

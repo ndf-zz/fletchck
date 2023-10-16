@@ -22,6 +22,22 @@ def timestamp():
     return datetime.now().astimezone().isoformat()
 
 
+def certExpiry(cert):
+    """Raise SSL certificate error if about to expire"""
+    if cert is not None and 'notAfter' in cert:
+        expiry = ssl.cert_time_to_seconds(cert['notAfter'])
+        nowsecs = datetime.now().timestamp()
+        daysLeft = (expiry - nowsecs) // 86400
+        _log.debug('Certificate %r expiry %r: %d days', cert['subject'],
+                   cert['notAfter'], daysLeft)
+        if daysLeft < defaults.CERTEXPIRYDAYS:
+            raise ssl.SSLCertVerificationError(
+                'Certificate expires in %d days' % (daysLeft))
+    else:
+        _log.debug('Certificate missing - expiry check skipped')
+    return True
+
+
 def loadCheck(name, config):
     """Create and return a check object for the provided flat config"""
     ret = None
@@ -165,7 +181,6 @@ class check():
         actList = [a for a in self.actions]
         depList = [d for d in self.depends]
         return {
-            'name': self.name,
             'type': self.checkType,
             'trigger': self.trigger,
             'threshold': self.threshold,
@@ -236,6 +251,7 @@ class smtpCheck(check):
                         ctx.check_hostname = False
                         ctx.verify_mode = ssl.CERT_NONE
                     self.log.append(repr(s.starttls(context=ctx)))
+                    certExpiry(s.sock.getpeercert())
                 self.log.append(repr(s.ehlo()))
                 self.log.append(repr(s.noop()))
                 self.log.append(repr(s.quit()))
@@ -269,6 +285,7 @@ class imapCheck(check):
                            port=port,
                            ssl_context=ctx,
                            timeout=defaults.IMAPTIMEOUT) as i:
+                certExpiry(i.sock.getpeercert())
                 self.log.append(repr(i.noop()))
                 self.log.append(repr(i.logout()))
                 failState = False
@@ -304,6 +321,7 @@ class httpsCheck(check):
                                 timeout=defaults.HTTPSTIMEOUT,
                                 context=ctx)
             h.request(reqType, reqPath)
+            certExpiry(h.sock.getpeercert())
             r = h.getresponse()
             self.log.append(repr((r.status, r.headers.as_string())))
             failState = False
