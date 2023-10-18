@@ -8,15 +8,15 @@ APPNAME = 'Fletchck'
 HOSTNAME = 'localhost'
 
 # Configuration filename
-CONFIGPATH = 'config'
+CONFIGPATH = 'fletchck.conf'
 
 # SSL cert & key file names, stored in site config
-SSLCERT = 'cert'
-SSLKEY = 'key'
+SSLCERT = 'fletchck.cert'
+SSLKEY = 'fletchck.key'
 
 # Web UI config skeleton
 WEBUICONFIG = {
-    'debug': True,
+    'debug': False,
     'cert': None,
     'key': None,
     'host': HOSTNAME,

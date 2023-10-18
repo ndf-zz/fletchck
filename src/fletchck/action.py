@@ -52,7 +52,8 @@ class action():
         if source.failState:
             msg = 'FAIL'
             since = source.lastFail
-        _log.info('%s: %s %s @ %s', self.name, source.name, msg, since)
+        _log.warning('%s %s (%s) %s %s', self.name, source.name,
+                     source.checkType, msg, since)
         return True
 
     def trigger(self, source):

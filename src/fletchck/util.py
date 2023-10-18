@@ -162,31 +162,29 @@ def randPass():
     return ''.join(pv)
 
 
-def saveSite(siteCfg, cfgFile):
+def saveSite(site):
     """Save the current site state to disk"""
-    dstCfg = {'base': None, 'webui': None}
-    if 'base' in siteCfg and isinstance(siteCfg['base'], str):
-        dstCfg['base'] = siteCfg['base']
-    if 'webui' in siteCfg and siteCfg['webui'] is not None:
+    dstCfg = {'base': site.base, 'webui': None}
+    if site.webCfg is not None:
         dstCfg['webui'] = {}
         for k in defaults.WEBUICONFIG:
-            dstCfg['webui'][k] = siteCfg['webui'][k]
+            dstCfg['webui'][k] = site.webCfg[k]
     dstCfg['actions'] = {}
-    for a in siteCfg['actions']:
-        dstCfg['actions'][a] = siteCfg['actions'][a].flatten()
+    for a in site.actions:
+        dstCfg['actions'][a] = site.actions[a].flatten()
     dstCfg['checks'] = {}
-    for c in siteCfg['checks']:
-        dstCfg['checks'][c] = siteCfg['checks'][c].flatten()
+    for c in site.checks:
+        dstCfg['checks'][c] = site.checks[c].flatten()
 
     # backup existing config and save
     tmpName = None
-    if os.path.exists(cfgFile):
-        tmpName = cfgFile + token_hex(6)
-        os.link(cfgFile, tmpName)
-    with SaveFile(cfgFile) as f:
+    if os.path.exists(site.configFile):
+        tmpName = site.configFile + token_hex(6)
+        os.link(site.configFile, tmpName)
+    with SaveFile(site.configFile) as f:
         json.dump(dstCfg, f, indent=1)
     if tmpName is not None:
-        os.rename(tmpName, cfgFile + '.bak')
+        os.rename(tmpName, site.configFile + '.bak')
 
 
 def initSite(path):
@@ -213,8 +211,8 @@ def initSite(path):
     siteCfg['webui'] = dict(defaults.WEBUICONFIG)
     siteCfg['webui']['port'] = 30000 + randbits(15)
     mkCert(cfgPath, siteCfg['webui']['host'])
-    siteCfg['webui']['cert'] = os.path.join(cfgPath, 'cert')
-    siteCfg['webui']['key'] = os.path.join(cfgPath, 'key')
+    siteCfg['webui']['cert'] = os.path.join(cfgPath, defaults.SSLCERT)
+    siteCfg['webui']['key'] = os.path.join(cfgPath, defaults.SSLKEY)
     siteCfg['actions'] = {}
     siteCfg['checks'] = {}
 
@@ -226,7 +224,14 @@ def initSite(path):
     siteCfg['webui']['users'][''] = createHash(randPass())
 
     # saveconfig
-    saveSite(siteCfg, cfgFile)
+    tmpName = None
+    if os.path.exists(cfgFile):
+        tmpName = cfgFile + token_hex(6)
+        os.link(cfgFile, tmpName)
+    with SaveFile(cfgFile) as f:
+        json.dump(siteCfg, f, indent=1)
+    if tmpName is not None:
+        os.rename(tmpName, cfgFile + '.bak')
 
     # report
     print('\nSite address:\thttps://%s:%d/\nAdmin password:\t%s\n' %
@@ -237,38 +242,38 @@ def initSite(path):
     return True
 
 
-def loadSite(cfgFile=None):
+def loadSite(site):
     """Load and initialise site"""
     cfg = None
     try:
         srcCfg = None
-        with open(cfgFile) as f:
+        with open(site.configFile) as f:
             srcCfg = json.load(f)
-        dstCfg = {'base': None, 'webui': None}
+
         if 'base' in srcCfg and isinstance(srcCfg['base'], str):
-            dstCfg['base'] = srcCfg['base']
+            site.base = srcCfg['base']
+
         if 'webui' in srcCfg and isinstance(srcCfg['webui'], dict):
-            dstCfg['webui'] = {}
+            site.webCfg = {}
             for k in defaults.WEBUICONFIG:
                 if k in srcCfg['webui']:
-                    # todo - properly check input
-                    dstCfg['webui'][k] = srcCfg['webui'][k]
+                    site.webCfg[k] = srcCfg['webui'][k]
                 else:
-                    dstCfg['webui'][k] = defaults.WEBUICONFIG[k]
-        dstCfg['scheduler'] = AsyncIOScheduler()
-        dstCfg['scheduler'].start()
+                    site.webCfg[k] = defaults.WEBUICONFIG[k]
+
+        scheduler = AsyncIOScheduler()
 
         # load actions
-        dstCfg['actions'] = {}
+        site.actions = {}
         if 'actions' in srcCfg and isinstance(srcCfg['actions'], dict):
             for a in srcCfg['actions']:
                 nAct = action.loadAction(a, srcCfg['actions'][a])
                 if nAct is not None:
-                    dstCfg['actions'][a] = nAct
+                    site.actions[a] = nAct
                     _log.debug('Load action %r (%s)', a, nAct.actionType)
 
         # load checks
-        dstCfg['checks'] = {}
+        site.checks = {}
         if 'checks' in srcCfg and isinstance(srcCfg['checks'], dict):
             for c in srcCfg['checks']:
                 if isinstance(srcCfg['checks'][c], dict):
@@ -277,56 +282,59 @@ def loadSite(cfgFile=None):
                     if 'actions' in srcCfg['checks'][c]:
                         if isinstance(srcCfg['checks'][c]['actions'], list):
                             for a in srcCfg['checks'][c]['actions']:
-                                if a in dstCfg['actions']:
-                                    newCheck.add_action(dstCfg['actions'][a])
+                                if a in site.actions:
+                                    newCheck.add_action(site.actions[a])
                                 else:
                                     _log.info('%s ignored unknown action %s',
                                               c, a)
-                    dstCfg['checks'][c] = newCheck
+                    site.checks[c] = newCheck
                     _log.debug('Load check %r (%s)', c, newCheck.checkType)
         # patch the check dependencies, sequences and triggers
-        for c in dstCfg['checks']:
+        for c in site.checks:
             if c in srcCfg['checks'] and 'depends' in srcCfg['checks'][c]:
                 if isinstance(srcCfg['checks'][c]['depends'], list):
                     for d in srcCfg['checks'][c]['depends']:
-                        if d in dstCfg['checks']:
-                            dstCfg['checks'][c].add_depend(dstCfg['checks'][d])
-            if dstCfg['checks'][c].checkType == 'sequence':
-                if 'checks' in dstCfg['checks'][c].options:
-                    if isinstance(dstCfg['checks'][c].options['checks'], list):
-                        for s in dstCfg['checks'][c].options['checks']:
-                            if s in dstCfg['checks']:
-                                dstCfg['checks'][c].checks.append(
-                                    dstCfg['checks'][s])
+                        if d in site.checks:
+                            site.checks[c].add_depend(site.checks[d])
+            if site.checks[c].checkType == 'sequence':
+                if 'checks' in site.checks[c].options:
+                    if isinstance(site.checks[c].options['checks'], list):
+                        for s in site.checks[c].options['checks']:
+                            if s in site.checks:
+                                site.checks[c].checks.append(site.checks[s])
                                 _log.debug('Adding %r to sequence %r', s, c)
-            if dstCfg['checks'][c].trigger is not None:
+            if site.checks[c].trigger is not None:
                 trigOpts = {}
                 trigType = None
-                if 'interval' in dstCfg['checks'][c].trigger:
-                    if isinstance(dstCfg['checks'][c].trigger['interval'],
-                                  dict):
-                        trigOpts = dstCfg['checks'][c].trigger['interval']
+                if 'interval' in site.checks[c].trigger:
+                    if isinstance(site.checks[c].trigger['interval'], dict):
+                        trigOpts = site.checks[c].trigger['interval']
                     trigType = 'interval'
-                elif 'cron' in dstCfg['checks'][c].trigger:
-                    if isinstance(dstCfg['checks'][c].trigger['cron'], dict):
-                        trigOpts = dstCfg['checks'][c].trigger['cron']
+                elif 'cron' in site.checks[c].trigger:
+                    if isinstance(site.checks[c].trigger['cron'], dict):
+                        trigOpts = site.checks[c].trigger['cron']
                     trigType = 'cron'
                 if trigType is not None:
                     _log.debug('Adding %s trigger to check %s: %r', trigType,
                                c, trigOpts)
-                    dstCfg['scheduler'].add_job(dstCfg['checks'][c].update,
-                                                trigType,
-                                                id=c,
-                                                **trigOpts)
+                    scheduler.add_job(site.checks[c].update,
+                                      trigType,
+                                      id=c,
+                                      **trigOpts)
                 else:
                     _log.info('Invalid trigger for %s ignored', c)
-                    dstCfg['checks'][c].trigger = None
+                    site.checks[c].trigger = None
 
-        cfg = dstCfg
+        site.scheduler = scheduler
+        site.scheduler.start()
     except Exception as e:
         _log.error('%s reading config: %s', e.__class__.__name__, e)
 
-    return cfg
+
+def loadUi(site):
+    """Load the Web Interface"""
+    from . import webui
+    pass
 
 
 def mkCert(path, hostname):
@@ -347,8 +355,8 @@ def mkCert(path, hostname):
                             dir=path,
                             delete=False) as f:
         keyTmp = f.name
-    crtOut = os.path.join(path, 'cert')
-    keyOut = os.path.join(path, 'key')
+    crtOut = os.path.join(path, defaults.SSLCERT)
+    keyOut = os.path.join(path, defaults.SSLKEY)
     template = """
 [dn]
 CN=%s

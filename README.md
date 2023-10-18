@@ -55,7 +55,7 @@ object with the following keys and values:
 
 key | type | description
 --- | --- | ---
-base | str | Full path to site configuration file
+base | str | Full path to location of site configuration file
 webui | dict | Web user interface configuration (see Web UI below)
 actions | dict | Notification actions (see Actions below)
 checks | dict | Service checks (see Checks below)

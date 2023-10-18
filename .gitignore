@@ -9,8 +9,10 @@ __pycache__/
 # Untracked devel and runtime files
 design/
 config/
-src/templates/
-src/static/
+src/fletchck.conf
+src/fletchck.conf.bak
+src/fletchck.cert
+src/fletchck.key
 src/venv/
 
 # Distribution / packaging
