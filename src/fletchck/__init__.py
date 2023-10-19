@@ -9,8 +9,6 @@ from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, basicConfig
 from signal import SIGTERM
 
-VERSION = '1.0.0a1'
-
 basicConfig(level=DEBUG)
 _log = getLogger('fletchck')
 _log.setLevel(DEBUG)
@@ -35,7 +33,6 @@ class FletchSite():
         self.actions = None
         self.checks = None
         self.webCfg = None
-        self.httpSrv = None
 
     def _sigterm(self):
         """Handle TERM signal"""
@@ -57,13 +54,13 @@ class FletchSite():
             # specify a desired configuration path
             self.configFile = options.config
             self.base = os.path.realpath(os.path.dirname(self.configFile))
-        if options.init:
-            # (re)init site from current base directory
-            if not util.initSite(self.base):
-                return False
         if not options.webui:
             _log.info('Web UI disabled by command line option')
             self.doWebUi = False
+        if options.init:
+            # (re)init site from current base directory
+            if not util.initSite(self.base, self.doWebUi):
+                return False
         if self.configFile is None:
             self.configFile = defaults.CONFIGPATH
         return True
@@ -80,7 +77,9 @@ class FletchSite():
 
         # create tornado application and listen on configured hostname
         if self.doWebUi and self.webCfg is not None:
-            util.loadUi(self)
+            _log.debug('Loading web ui module')
+            from . import webui
+            webui.loadUi(self)
         else:
             _log.info('Running without webui')
 

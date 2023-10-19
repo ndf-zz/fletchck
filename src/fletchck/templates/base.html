@@ -3,16 +3,16 @@
  <!--
    Fletchck - Machine Monitor
    MIT License Copyright (c) 2023
-   Version: {{ escape(handler.settings["site_version"]) }}
+   Version: {{ handler.settings["site_version"] }}
  -->
  <head>
   <meta charset="utf-8">
   <meta name="viewport"
         content="width=device-width, initial-scale=1">
   <meta name="application-name"
-        content="{{ escape(handler.settings["site_name"]) }}">
+        content="{{ handler.settings["site_name"] }}">
   <meta name="description" content="Machine Monitor">
-  <title>{{ escape(handler.settings["site_name"]) }}</title>
+  <title>{{ handler.settings["site_name"] }}</title>
   <link href="{{ static_url("fletchck.svg") }}"
         rel="icon">
   <link href="{{ static_url("bootstrap.min.css") }}"

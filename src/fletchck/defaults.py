@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 """Site defaults"""
 
+# Version String
+VERSION = '1.0.0'
 # Default application vanity label
 APPNAME = 'Fletchck'
 
@@ -16,12 +18,12 @@ SSLKEY = 'fletchck.key'
 
 # Web UI config skeleton
 WEBUICONFIG = {
-    'debug': False,
+    'name': APPNAME,
+    'hostname': HOSTNAME,
+    'port': None,
     'cert': None,
     'key': None,
-    'host': HOSTNAME,
-    'name': APPNAME,
-    'port': None,
+    'debug': False,
     'users': None,
 }
 

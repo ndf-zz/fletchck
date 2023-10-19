@@ -8,8 +8,8 @@
  <main class="form-signin w-100 m-auto">
   <form action="{{ handler.settings["login_url"] }}" method="POST">
     <div class="ms-2">
-     <img class="logoimg" src="{{ static_url("fletchck.svg") }}" alt="{{ escape(handler.settings["site_name"]) }}">
-     {% if error %}<span class="badge thought text-bg-warning">{{ escape(error) }}</span>{% end %}
+     <img class="logoimg" src="{{ static_url("fletchck.svg") }}" alt="{{ handler.settings["site_name"] }}">
+     {% if error %}<span class="badge thought text-bg-warning">{{ error }}</span>{% end %}
     </div>
     <div class="form-floating">
       <input type="text" class="form-control" name="username" id="username" placeholder="username">

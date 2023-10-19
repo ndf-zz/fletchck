@@ -11,9 +11,6 @@ from passlib.hash import argon2 as kdf
 from tempfile import NamedTemporaryFile, mkdtemp
 from logging import getLogger, DEBUG, INFO, WARNING
 from subprocess import run
-from importlib.resources import files
-from tornado.template import BaseLoader, Template
-from tornado.web import StaticFileHandler, HTTPError
 from . import action
 from . import check
 from . import defaults
@@ -64,75 +61,6 @@ class SaveFile():
         os.chmod(self.__tfile.name, self.__perm)
         os.rename(self.__tfile.name, self.__sfile)
         return True
-
-
-class PackageLoader(BaseLoader):
-    """Tornado template loader for importlib.files"""
-
-    def resolve_path(self, name, parent_path=None):
-        return name
-
-    def _create_template(self, name):
-        template = None
-        ref = files('fletchck.templates').joinpath(name)
-        if ref.is_file():
-            with ref.open(mode='rb') as f:
-                template = Template(f.read(), name=name, loader=self)
-        else:
-            _log.error('Unable to find named resource %s in templates', name)
-        return template
-
-
-class PackageFileHandler(StaticFileHandler):
-    """Tornado static file handler for importlib.files"""
-
-    @classmethod
-    def get_absolute_path(cls, root, path):
-        """Return the absolute path from importlib"""
-        absolute_path = files('fletchck.static').joinpath(path)
-        return absolute_path
-
-    def validate_absolute_path(self, root, absolute_path):
-        """Validate and return the absolute path"""
-        if not absolute_path.is_file():
-            raise HTTPError(404)
-        return absolute_path
-
-    @classmethod
-    def get_content(cls, abspath, start=None, end=None):
-        with abspath.open('rb') as file:
-            if start is not None:
-                file.seek(start)
-            if end is not None:
-                remaining = end - (start or 0)
-            else:
-                remaining = None
-            while True:
-                chunk_size = 64 * 1024
-                if remaining is not None and remaining < chunk_size:
-                    chunk_size = remaining
-                chunk = file.read(chunk_size)
-                if chunk:
-                    if remaining is not None:
-                        remaining -= len(chunk)
-                    yield chunk
-                else:
-                    if remaining is not None:
-                        assert remaining == 0
-                    return
-
-    def set_default_headers(self, *args, **kwargs):
-        self.set_header("Content-Security-Policy",
-                        "frame-ancestors 'none'; default-src 'self'")
-        self.set_header("Strict-Transport-Security", "max-age=31536000")
-        self.set_header("X-Frame-Options", "deny")
-        self.set_header("X-Content-Type-Options", "nosniff")
-        self.set_header("X-Permitted-Cross-Domain-Policies", "none")
-        self.set_header("Referrer-Policy", "no-referrer")
-        self.set_header("Cross-Origin-Embedder-Policy", "require-corp")
-        self.set_header("Cross-Origin-Opener-Policy", "same-origin")
-        self.set_header("Cross-Origin-Resource-Policy", "same-origin")
-        self.clear_header("Server")
 
 
 def checkPass(pw, hash):
@@ -187,7 +115,7 @@ def saveSite(site):
         os.rename(tmpName, site.configFile + '.bak')
 
 
-def initSite(path):
+def initSite(path, webUi=True):
     """Prepare a new empty site under path, returns True to continue"""
     if not sys.stdin.isatty():
         _log.error('Init requires user input - exiting')
@@ -208,20 +136,23 @@ def initSite(path):
     # create initial configuration
     siteCfg = {}
     siteCfg['base'] = cfgPath
-    siteCfg['webui'] = dict(defaults.WEBUICONFIG)
-    siteCfg['webui']['port'] = 30000 + randbits(15)
-    mkCert(cfgPath, siteCfg['webui']['host'])
-    siteCfg['webui']['cert'] = os.path.join(cfgPath, defaults.SSLCERT)
-    siteCfg['webui']['key'] = os.path.join(cfgPath, defaults.SSLKEY)
-    siteCfg['actions'] = {}
-    siteCfg['checks'] = {}
+    if webUi:
+        siteCfg['webui'] = dict(defaults.WEBUICONFIG)
+        siteCfg['webui']['port'] = 30000 + randbits(15)
+        mkCert(cfgPath, siteCfg['webui']['hostname'])
+        siteCfg['webui']['cert'] = os.path.join(cfgPath, defaults.SSLCERT)
+        siteCfg['webui']['key'] = os.path.join(cfgPath, defaults.SSLKEY)
+        siteCfg['actions'] = {}
+        siteCfg['checks'] = {}
 
-    # create admin user
-    siteCfg['webui']['users'] = {}
-    adminPw = randPass()
-    siteCfg['webui']['users']['admin'] = createHash(adminPw)
-    # add dummy hash for unknown users
-    siteCfg['webui']['users'][''] = createHash(randPass())
+        # create admin user
+        siteCfg['webui']['users'] = {}
+        adminPw = randPass()
+        siteCfg['webui']['users']['admin'] = createHash(adminPw)
+        # add dummy hash for unknown users
+        siteCfg['webui']['users'][''] = createHash(randPass())
+    else:
+        siteCfg['webui'] = None
 
     # saveconfig
     tmpName = None
@@ -234,8 +165,12 @@ def initSite(path):
         os.rename(tmpName, cfgFile + '.bak')
 
     # report
-    print('\nSite address:\thttps://%s:%d/\nAdmin password:\t%s\n' %
-          (siteCfg['webui']['host'], siteCfg['webui']['port'], adminPw))
+    if webUi:
+        print(
+            '\nSite address:\thttps://%s:%d\nAdmin password:\t%s\n' %
+            (siteCfg['webui']['hostname'], siteCfg['webui']['port'], adminPw))
+    else:
+        print('\nConfigured without web interface.\n')
     choice = input('Start? (Y/n) ')
     if choice and choice.lower()[0] == 'n':
         return False
@@ -329,12 +264,6 @@ def loadSite(site):
         site.scheduler.start()
     except Exception as e:
         _log.error('%s reading config: %s', e.__class__.__name__, e)
-
-
-def loadUi(site):
-    """Load the Web Interface"""
-    from . import webui
-    pass
 
 
 def mkCert(path, hostname):
