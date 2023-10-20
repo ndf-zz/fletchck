@@ -11,19 +11,24 @@ user interface.
 
 The following anonymous checks are supported:
 
-   - SMTP: SMTP with optional starttls
-   - SMTP-over-SSL: Submissions
-   - IMAP4-SSL: IMAP mailbox
-   - HTTPS: HTTP request
-   - Cert: Check TLS certificate validity and/or expiry
-   - SSH: SSH pre-auth connection with optional hostkey check
-   - Sequence: A sequence of checks, fails if any one check fails
+   - smtp: SMTP with optional starttls
+   - submit: SMTP-over-SSL/Submissions
+   - imap: IMAP4-SSL mailbox
+   - https: HTTP request
+   - cert: Check TLS certificate validity and/or expiry
+   - ssh: SSH pre-auth connection with optional hostkey check
+   - sequence: A sequence of checks, fails if any one check fails
+
+Service checks that use TLS will verify the service certificate
+and hostname unless the selfsigned option is set.
+If expiry of a self-signed certificate needs to be checked, use
+the cert check with selfsigned option.
 
 The following notification actions are supported:
 
-   - Email: Send an email
-   - API SMS: Post SMS via SMS Central API
-   - Log
+   - email: Send an email
+   - sms: Post SMS via SMS Central API
+   - log: Log a WARNING message
 
 ## Installation
 
@@ -39,14 +44,6 @@ directory with the -init option:
 
 	$ ./venv/bin/fletchck -init
 
-## Requirements
-
-   - python > 3.9
-   - apscheduler
-   - tornado
-   - paramiko
-   - passlib
-   - cryptography
 
 ## Configuration
 
@@ -111,23 +108,33 @@ with the following keys and values:
 
 key | type | description
 --- | --- | ---
-type | str | Check type, one of 'cert', 'smtp', 'submit', 'imap', 'https', 'ssh' or 'sequence'
+type | str | Check type: cert, smtp, submit, imap, https, ssh or sequence
 trigger | dict | Trigger definition (see Scheduling below)
 threshold | int | Fail state reported after this many failed checks
-failAction | bool | Send a notification action on transision to fail
-passAction | bool | Send a notification action on transition to pass
-options | dict | Dictionary of option names and values
+failAction | bool | Send notification action on transision to fail
+passAction | bool | Send notification action on transition to pass
+options | dict | Dictionary of option names and values (see below)
 actions | list | List of notification action names
-depends | list | List of check names that this check depends on
+depends | list | List of check names this check depends on
 data | dict | Runtime data and logs (internal)
 
 Note that only the type is required, all other keys are optional.
 The following check options are recognised:
 
-TODO
+option | type | description
+--- | --- | ---
+hostname | str | Hostname or IP address of target service
+port | int | TCP port of target service
+timeout | int | Socket timeout in seconds
+selfsigned | bool | If set, TLS sessions will not validate service certificate
+tls | bool | (smtp) If set, call starttls to initiate TLS
+probe | str | (cert) send str probe to service after TLS negotiation
+reqType | str | (https) Request method: HEAD, GET, POST, PUT, DELETE, etc
+reqPath | str | (https) Request target resource
+hostkey | str | (ssh) Target service base64 encoded public key
+checks| list | (sequence) List of check names to be run in-turn
 
-option | type | checks | description
---- | --- | --- | ---
+Unrecognised options are ignored by checks.
 
 Example:
 
@@ -136,15 +143,16 @@ Example:
 	  "type": "cert",
 	  "passAction": false,
 	  "trigger": { "cron": {"day": 1, "hour": 1} },
-	  "options": { "hostname": "home.place.com" },
+	  "options": { "hostname": "home.place.com", "port": 443 },
 	  "actions": [ "Tell Alice" ]
 	 }
 	}
 
 Define a single check named "Home Cert" which performs
-a certificate verification check on the host "home.place.com"
-at 1:00 am on the first of each month, and notifies using
-the action named "Tell Alice" on transition to fail.
+a certificate verification check on port 443 of
+"home.place.com" at 1:00 am on the first of each month,
+and notifies using the action named "Tell Alice" on
+transition to fail.
 
 
 ### Example Config
