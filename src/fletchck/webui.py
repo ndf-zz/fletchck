@@ -6,6 +6,7 @@ import ssl
 import tornado.web
 import tornado.ioloop
 import tornado.template
+import json
 from importlib.resources import files
 from . import defaults
 from . import util
@@ -91,7 +92,9 @@ class Application(tornado.web.Application):
     def __init__(self, site):
         handlers = [
             (r"/", HomeHandler, dict(site=site)),
+            (r"/check/(.*)", CheckHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
+            (r"/status", StatusHandler, dict(site=site)),
             (r"/logout", AuthLogoutHandler, dict(site=site)),
         ]
         templateLoader = PackageLoader(whitespace='all')
@@ -142,8 +145,40 @@ class HomeHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self):
-        entries = []
-        self.render("dash.html", entries=entries)
+        status = self._site.getStatus()
+        self.render("home.html", status=status)
+
+
+class CheckHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        _log.debug('Path = %r', path)
+        check = None
+        if path:
+            if path in self._site.checks:
+                check = self._site.checks[path]
+            else:
+                raise tornado.web.HTTPError(404)
+        else:
+            # maybe creating a new check
+            _log.debug('Creating a new one?')
+        status = self._site.getStatus()
+        self.render("check.html", status=status, check=check)
+
+    @tornado.web.authenticated
+    async def post(self, path):
+        status = self._site.getStatus()
+        self.render("check.html", status=status)
+
+
+class StatusHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    async def get(self):
+        status = self._site.getStatus()
+        self.set_header("Content-Type", 'application/json')
+        self.write(json.dumps(status))
 
 
 class AuthLoginHandler(BaseHandler):
@@ -175,7 +210,7 @@ class AuthLoginHandler(BaseHandler):
                                    secure=True,
                                    samesite='Strict')
             self.clear_cookie("_xsrf", secure=True, samesite='Strict')
-            self.redirect(self.get_argument("next", "/"))
+            self.redirect('/')
         else:
             self.render("login.html", error='Invalid login details')
 
@@ -186,7 +221,7 @@ class AuthLogoutHandler(BaseHandler):
         self.clear_cookie("user", secure=True, samesite='Strict')
         self.clear_cookie("_xsrf", secure=True, samesite='Strict')
         self.set_header("Clear-Site-Data", '"*"')
-        self.redirect(self.get_argument("next", "/"))
+        self.redirect('/login')
 
 
 def loadUi(site):

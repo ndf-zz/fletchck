@@ -106,6 +106,13 @@ class check():
         """Perform the required check and return fail state"""
         return False
 
+    def getState(self):
+        """Return a string indicating pass or fail"""
+        if self.failState:
+            return 'FAIL'
+        else:
+            return 'PASS'
+
     def notify(self):
         """Trigger all configured actions"""
         for action in self.actions:

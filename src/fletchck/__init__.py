@@ -65,6 +65,25 @@ class FletchSite():
             self.configFile = defaults.CONFIGPATH
         return True
 
+    def getStatus(self):
+        status = {'fail': False, 'info': None, 'checks': {}}
+        failCount = 0
+        for checkName in self.checks:
+            check = self.checks[checkName]
+            if check.failState:
+                failCount += 1
+                status['fail'] = True
+            status['checks'][checkName] = {
+                'checkType': check.checkType,
+                'failState': check.failState,
+                'lastFail': check.lastFail,
+                'lastPass': check.lastPass
+            }
+        if failCount > 0:
+            status['info'] = '%d check%s currently in fail state' % (
+                failCount, 's' if failCount > 1 else '')
+        return status
+
     async def run(self):
         """Load and run site in async loop"""
         self.loadConfig()

@@ -1,0 +1,20 @@
+{% extends "dash.html" %}
+{% block main %}
+ {% if check %}
+  <h1>{{ check.name }} ({{ check.checkType }})</h1>
+  <ul>
+   <li>Failstate: {{ check.failState }}</li>
+   <li>Last Fail: {{ check.lastFail }}</li>
+   <li>Last Pass: {{ check.lastPass }}</li>
+  </ul>
+  {% if check.log %}
+  <h2>Log</h2>
+  <pre>{{ '\n'.join(check.log) }}</pre>
+  {% end %}
+ {% end %}
+ <h2>Configuration</h2>
+ <ul>
+  <li>Type</li>
+  <li>Name</li>
+ </ul>
+{% end %}

@@ -1,0 +1,32 @@
+{% extends "dash.html" %}
+{% block main %}
+ <div class="table-responsive">
+  <table class="table table-striped">
+   <thead>
+    <tr>
+     <th>Check</th>
+     <th></th>
+     <th></th>
+    </tr>
+   </thead>
+   <tbody>
+    {% if status['checks'] %}
+     {% for check in status['checks'] %}
+      <tr {% if status['checks'][check]['failState'] %}class="table-warning"{% end %}>
+       <td>{{ check }} ({{ status['checks'][check]['checkType'] }})</td>
+       <td>{% if status['checks'][check]['failState'] %}<img src="{{ static_url("exclamation-triangle.svg") }}" width="16" alt="FAIL" class="me-2">{{ status['checks'][check]['lastFail'] }}{% else %}<img src="{{ static_url("check-circle.svg") }}" alt="PASS" width="16" class="me-2">{{ status['checks'][check]['lastPass']}}{% end %}</td>
+       <td>
+        <a href="/check/{{ url_escape(check) }}"><img src="{{ static_url("caret-right-square.svg") }}" alt="run" width="16" class="me-2"></a>
+        <a href="/check/{{ url_escape(check) }}"><img src="{{ static_url("pencil.svg") }}" alt="edit" width="16" class="me-2"></a>
+        <a href="/check/{{ url_escape(check) }}"><img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16" class="me-2"></a>
+       </td>
+      </tr>
+     {% end %}
+    {% else %}
+     <tr><td colspan="3">No checks defined</td></tr>
+    {% end %}
+   </tbody>
+  </table>
+  <a class="btn btn-primary" href="/check/new" role="button">Add Check</a>
+ </div>
+{% end %}
