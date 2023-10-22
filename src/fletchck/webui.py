@@ -91,12 +91,10 @@ class Application(tornado.web.Application):
     def __init__(self, site):
         handlers = [
             (r"/", HomeHandler, dict(site=site)),
-            (r"/action", HomeHandler, dict(site=site)),
             (r"/check/(.*)", CheckHandler, dict(site=site)),
-            #(r"/action/(.*)", ActionHandler, dict(site=site)),
+            (r"/actions", ActionsHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
             (r"/log", LogHandler, dict(site=site)),
-            #(r"/config", ConfigHandler, dict(site=site)),
             (r"/status", StatusHandler, dict(site=site)),
             (r"/logout", AuthLogoutHandler, dict(site=site)),
         ]
@@ -147,14 +145,11 @@ class HomeHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self):
-        section = 'check'
-        if 'action' in self.request.path:
-            section = 'action'
         status = self._site.getStatus()
         self.render("home.html",
                     site=self._site,
                     status=status,
-                    section=section)
+                    section='check')
 
 
 class LogHandler(BaseHandler):
@@ -162,32 +157,27 @@ class LogHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         if self.get_argument('clear', ''):
+            _log.info('Clearing volatile log')
             self._site.log.clear()
-        section = 'log'
         status = self._site.getStatus()
-        self.render("log.html",
-                    site=self._site,
-                    status=status,
-                    section=section)
+        self.render("log.html", site=self._site, status=status, section='log')
 
 
 class CheckHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self, path):
-        section = 'check'
         check = None
-        _log.debug('Path : %r', path)
         if path:
             if path in self._site.checks:
                 check = self._site.checks[path]
                 if self.get_argument('delete', ''):
-                    _log.debug('Deleting %s without undo', path)
+                    _log.info('Deleting %s without undo', path)
                     self._site.deleteCheck(path)
                     self.redirect('/')
                     return
                 elif self.get_argument('run', ''):
-                    _log.debug('Manually running %s', path)
+                    _log.info('Manually running %s', path)
                     await tornado.ioloop.IOLoop.current().run_in_executor(
                         None, self._site.runCheck, path)
                     self.redirect('/check/' + self._site.pathQuote(path))
@@ -201,7 +191,7 @@ class CheckHandler(BaseHandler):
                     status=status,
                     oldName=path,
                     check=check,
-                    section=section,
+                    section='check',
                     site=self._site,
                     formErrors=None)
 
@@ -250,7 +240,10 @@ class CheckHandler(BaseHandler):
             newConf['options']['selfsigned'] = True
         temp = self.get_arguments('checks')
         if temp:
-            newConf['options']['checks'] = temp
+            newConf['options']['checks'] = []
+            for c in temp:
+                if c:
+                    newConf['options']['checks'].append(c)
         newConf['actions'] = self.get_arguments('actions')
         newConf['depends'] = self.get_arguments('depends')
 
@@ -265,24 +258,27 @@ class CheckHandler(BaseHandler):
         # build a temporary check object using the rest of the config
         check = util.check.loadCheck(name=checkName, config=newConf)
         for action in newConf['actions']:
-            if action in self._site.actions:
-                check.add_action(self._site.actions[action])
-            else:
-                formErrors.append('Invalid action %r' % (action))
+            if action:
+                if action in self._site.actions:
+                    check.add_action(self._site.actions[action])
+                else:
+                    formErrors.append('Invalid action %r' % (action))
         for depend in newConf['depends']:
-            if depend in self._site.checks:
-                check.add_depend(self._site.checks[depend])
-            else:
-                formErrors.append('Invalid check dependency %r' % (depend))
+            if depend:
+                if depend in self._site.checks:
+                    check.add_depend(self._site.checks[depend])
+                else:
+                    formErrors.append('Invalid check dependency %r' % (depend))
 
         if formErrors:
+            _log.info('Edit check %s with form errors', path)
             status = self._site.getStatus()
             self.render("check.html",
                         status=status,
                         oldName=path,
                         check=check,
                         site=self._site,
-                        section=section,
+                        section='check',
                         formErrors=formErrors)
             return
 
@@ -293,8 +289,10 @@ class CheckHandler(BaseHandler):
         async with self._site._lock:
             runCheck = False
             if path:
+                _log.info('Saving changes to check %s', path)
                 self._site.updateCheck(path, checkName, newConf)
             else:
+                _log.info('Saving new check %s', checkName)
                 self._site.addCheck(checkName, newConf)
                 runCheck = True
 
@@ -304,6 +302,7 @@ class CheckHandler(BaseHandler):
 
         # run check and wait for result
         if runCheck:
+            _log.info('Running initial test on %s', checkName)
             await tornado.ioloop.IOLoop.current().run_in_executor(
                 None, self._site.runCheck, checkName)
 
@@ -311,6 +310,78 @@ class CheckHandler(BaseHandler):
             self.redirect('/check/' + self._site.pathQuote(checkName))
         else:
             self.redirect('/')
+
+
+class ActionsHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    async def get(self):
+        testMsg = None
+        if 'email' not in self._site.actions:
+            self._site.addAction('email', {'type': 'email'})
+        if 'sms' not in self._site.actions:
+            self._site.addAction('sms', {'type': 'sms'})
+
+        if self.get_argument('test', ''):
+            _log.info('Sending test notifications')
+            res = await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.testActions)
+            _log.debug('After waiting - res = %r', res)
+            if not res:
+                testMsg = 'One or more tests failed, check log for details.'
+
+        status = self._site.getStatus()
+        self.render("actions.html",
+                    status=status,
+                    testMsg=testMsg,
+                    section='actions',
+                    site=self._site,
+                    formErrors=[])
+
+    @tornado.web.authenticated
+    async def post(self):
+        # transfer form data into options
+        emailOptions = {}
+        smsOptions = {}
+
+        # list options
+        nv = self.get_argument('email.recipients', '')
+        if nv:
+            nv = nv.split()
+            if nv:
+                emailOptions['recipients'] = nv
+        nv = self.get_argument('sms.recipients', '')
+        if nv:
+            nv = nv.split()
+            if nv:
+                smsOptions['recipients'] = nv
+
+        # string options
+        for key in [
+                'site', 'hostname', 'username', 'password', 'sender', 'url'
+        ]:
+            nv = self.get_argument('email.' + key, '')
+            if nv:
+                emailOptions[key] = nv
+            nv = self.get_argument('sms.' + key, '')
+            if nv:
+                smsOptions[key] = nv
+
+        # int options
+        for key in ['port', 'timeout']:
+            nv = self.get_argument('email.' + key, '')
+            if nv:
+                emailOptions[key] = int(nv)
+            nv = self.get_argument('sms.' + key, '')
+            if nv:
+                smsOptions[key] = int(nv)
+
+        async with self._site._lock:
+            self._site.actions['email'].options = emailOptions
+            self._site.actions['sms'].options = smsOptions
+            await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.saveConfig)
+        self.redirect('/actions')
 
 
 class StatusHandler(BaseHandler):

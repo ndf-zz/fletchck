@@ -51,6 +51,26 @@ class FletchSite():
         """Load site from config"""
         util.loadSite(self)
 
+    def testActions(self):
+        """Trigger notifications to email and sms actions"""
+        _log.warning('Manually notifying email and sms')
+        fakeCheck = util.check.BaseCheck('Notification')
+        fakeCheck.checkType = 'action-test'
+        fakeCheck.failState = False
+        fakeCheck.lastPass = util.check.timestamp()
+        fakeCheck.log = ['Testing action notification to:', 'email', 'sms']
+        emailOK = False
+        if 'email' in self.actions:
+            emailOK = self.actions['email'].trigger(fakeCheck)
+        smsOK = False
+        if 'sms' in self.actions:
+            smsOK = self.actions['sms'].trigger(fakeCheck)
+        return emailOK and smsOK
+
+    def addAction(self, name, config):
+        """Add the named action to site"""
+        util.addAction(self, name, config)
+
     def addCheck(self, name, config):
         """Add the named check to site"""
         util.addCheck(self, name, config)

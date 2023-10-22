@@ -1,0 +1,74 @@
+{% extends "dash.html" %}
+{% block main %}
+ <h2 class="py-3">Notification Actions</h2>{% if testMsg %}
+ <p><em>{{ testMsg }}</em></p>{% end %}
+ <p><a href="/actions?test=y" class="btn btn-primary py-2 mb-3">Test Actions</a></p>
+ {% if formErrors %}<div id="formAlert" class="alert alert-warning" role="alert"><p>Form Error:</p><ul>
+ {% for l in formErrors %}
+  <li><em>{{ l }}</em></li>
+ {% end %}
+ </ul></div>
+ {% end %}
+ <div id="formBody" class="bg-body-tertiary p-2 rounded">
+ <form action="/actions" method="POST">
+ <h2>Email</h2>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="email.recipients" id="email.recipients" placeholder="recipients" value="{{ ' '.join(site.actions['email'].options['recipients']) if 'recipients' in site.actions['email'].options else '' }}">
+  <label for="email.recipients" class="form-label">Recipients (space separated)</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="email.hostname" id="email.hostname" placeholder="hostname" value="{{ site.actions['email'].options['hostname'] if 'hostname' in site.actions['email'].options else '' }}">
+  <label for="email.hostname" class="form-label">MSA Hostname</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="email.username" id="email.username" placeholder="username" value="{{ site.actions['email'].options['username'] if 'username' in site.actions['email'].options else '' }}">
+  <label for="email.username" class="form-label">Username</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="email.password" id="email.password" placeholder="password" value="{{ site.actions['email'].options['password'] if 'password' in site.actions['email'].options else '' }}">
+  <label for="email.password" class="form-label">Password</label>
+ </div>
+ <div class="form-floating">
+  <input type="email" class="form-control" name="email.sender" id="email.sender" placeholder="sender" value="{{ site.actions['email'].options['sender'] if 'sender' in site.actions['email'].options else '' }}">
+  <label for="email.sender" class="form-label">Sender</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="email.site" id="email.site" placeholder="site" value="{{ site.actions['email'].options['site'] if 'site' in site.actions['email'].options else '' }}">
+  <label for="email.site" class="form-label">Site Name</label>
+ </div>
+ <div class="form-floating">
+  <input type="number" class="form-control" name="email.port" id="email.port" placeholder="12345" value="{{ site.actions['email'].options['port'] if 'port' in site.actions['email'].options else '' }}">
+  <label for="email.port" class="form-label">Port</label>
+ </div>
+ <div class="form-floating mb-3">
+  <input type="number" class="form-control" name="email.timeout" id="email.timeout" placeholder="12" value="{{ site.actions['email'].options['timeout'] if 'timeout' in site.actions['email'].options else '' }}">
+  <label for="email.timeout" class="form-label">Socket timeout (seconds)</label>
+ </div>
+
+ <h2>SMS</h2>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="sms.recipients" id="sms.recipients" placeholder="recipients" value="{{ ' '.join(site.actions['sms'].options['recipients']) if 'recipients' in site.actions['sms'].options else '' }}">
+  <label for="sms.recipients" class="form-label">Recipients (space separated)</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="sms.username" id="sms.username" placeholder="username" value="{{ site.actions['sms'].options['username'] if 'username' in site.actions['sms'].options else '' }}">
+  <label for="sms.username" class="form-label">Username</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="sms.password" id="sms.password" placeholder="password" value="{{ site.actions['sms'].options['password'] if 'password' in site.actions['sms'].options else '' }}">
+  <label for="sms.password" class="form-label">Password</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="sms.sender" id="sms.sender" placeholder="sender" value="{{ site.actions['sms'].options['sender'] if 'sender' in site.actions['sms'].options else '' }}">
+  <label for="sms.sender" class="form-label">Sender</label>
+ </div>
+ <div class="form-floating mb-3">
+  <input type="text" class="form-control" name="sms.url" id="sms.url" placeholder="url" value="{{ site.actions['sms'].options['url'] if 'url' in site.actions['sms'].options else '' }}">
+  <label for="sms.url" class="form-label">API URL</label>
+ </div>
+
+ {% module xsrf_form_html() %}
+ <button class="btn btn-primary py-2 mb-3" type="submit">Update</button>
+ </form>
+ </div>
+{% end %}

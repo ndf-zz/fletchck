@@ -289,8 +289,6 @@ def initSite(path, webUi=True):
         mkCert(cfgPath, siteCfg['webui']['hostname'])
         siteCfg['webui']['cert'] = os.path.join(cfgPath, defaults.SSLCERT)
         siteCfg['webui']['key'] = os.path.join(cfgPath, defaults.SSLKEY)
-        siteCfg['actions'] = {}
-        siteCfg['checks'] = {}
 
         # create admin user
         siteCfg['webui']['users'] = {}
@@ -300,6 +298,10 @@ def initSite(path, webUi=True):
         siteCfg['webui']['users'][''] = createHash(randPass())
     else:
         siteCfg['webui'] = None
+
+    # Add the basic actions and an empty set of checks
+    siteCfg['actions'] = {'email': {'type': 'email'}, 'sms': {'type': 'sms'}}
+    siteCfg['checks'] = {}
 
     # saveconfig
     tmpName = None
@@ -355,6 +357,13 @@ def updateCheck(site, oldName, newName, config):
                             cl[cl.index(oldName)] = newName
 
 
+def addAction(site, name, config):
+    nAct = action.loadAction(name, config)
+    if nAct is not None:
+        site.actions[name] = nAct
+        _log.warning('Added action %s to site', name)
+
+
 def addCheck(site, name, config):
     """Add the named check to running site"""
     newCheck = check.loadCheck(name, config)
@@ -404,6 +413,7 @@ def addCheck(site, name, config):
                                    trigType,
                                    id=name,
                                    **trigOpts)
+    _log.warning('Added check %s to site', name)
 
 
 def deleteCheck(site, check):
@@ -430,7 +440,6 @@ def deleteCheck(site, check):
                     if check in c.options['checks']:
                         _log.debug('Removing %s from %s options', check, name)
                         c.options['checks'].remove(check)
-
     _log.warning('Deleted check %s from site', check)
 
 

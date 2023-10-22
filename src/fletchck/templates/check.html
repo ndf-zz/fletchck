@@ -1,7 +1,7 @@
 {% extends "dash.html" %}
 {% block main %}
  {% if check and oldName %}
-  <h1>{{ oldName }} ({{ check.checkType }})</h1>
+  <h2 class="my-3">{{ oldName }} ({{ check.checkType }})</h1>
   <ul>
    <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
    <li>Last Fail: {{ check.lastFail }}</li>
@@ -20,10 +20,9 @@
  {% for l in formErrors %}
   <li><em>{{ l }}</em></li>
  {% end %}
- </ul>
- {% else %}
- <div id="formBody" class="alert alert-secondary">
+ </ul></div>
  {% end %}
+ <div id="formBody" class="bg-body-tertiary p-2 rounded">
  <form action="/check/{{ site.pathQuote(oldName) }}" method="POST">
  <input type="hidden" name="oldName" value="{{ oldName }}">
  <div class="form-floating">
@@ -31,9 +30,9 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" placeholder="ssh" class="form-select">
-{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'sequence'] %}{% if check.checkType == checkType %}<option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}<option value="{{ checkType }}">{{ checkType }}</option>
-{% end %}{% end %}
+  <select id="checkType" name="checkType" placeholder="ssh" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'sequence'] %}{% if check.checkType == checkType %}
+   <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
+   <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
   <label for="checkType" class="form-label">Check type</label>
  </div>
@@ -84,12 +83,9 @@
  </div>
  <div class="mb-3">
   <label for="checks" class="form-label">Check sequence (sequence checks)</label>
-  <select class="form-select" multiple size="{{ len(site.checks) }}" id="checks" name="checks">
-   {% for depend in site.checks %}
-     {% if depend != check.name %}
-       <option value="{{ depend }}" {{ 'selected' if 'checks' in check.options and depend in check.options['checks'] else '' }}>{{ depend }}</option>
-     {% end %}
-   {% end %}
+  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="checks" name="checks">{% for depend in site.checks %}{% if depend != check.name %}
+   <option value="{{ depend }}" {{ 'selected' if 'checks' in check.options and depend in check.options['checks'] else '' }}>{{ depend }}</option>{% end %}{% end %}
+   <option value="">[not set]</option>
   </select>
  </div>
  <div class="form-check mb-3">
@@ -103,20 +99,16 @@
 
  <div class="mb-3">
   <label for="actions" class="form-label">Actions</label>
-  <select class="form-select" multiple size="{{ len(site.actions) }}" id="actions" name="actions">
-   {% for action in site.actions %}
-     <option value="{{ action }}" {{ 'selected' if action in check.actions else '' }}>{{ action }}</option>
-   {% end %}
+  <select class="form-select" multiple size="{{ max(len(site.actions),1) }}" id="actions" name="actions">{% for action in site.actions %}
+   <option value="{{ action }}" {{ 'selected' if action in check.actions else '' }}>{{ action }}</option>{% end %}
+   <option value="">[not set]</option>
   </select>
  </div>
  <div class="mb-3">
   <label for="depends" class="form-label">Depends</label>
-  <select class="form-select" multiple size="{{ len(site.checks) }}" id="depends" name="depends">
-   {% for depend in site.checks %}
-     {% if depend != check.name %}
-       <option value="{{ depend }}" {{ 'selected' if depend in check.depends else '' }}>{{ depend }}</option>
-     {% end %}
-   {% end %}
+  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="depends" name="depends">{% for depend in site.checks %}{% if depend != check.name %}
+   <option value="{{ depend }}" {{ 'selected' if depend in check.depends else '' }}>{{ depend }}</option>{% end %}{% end %}
+   <option value="">[not set]</option>
   </select>
  </div>
  {% module xsrf_form_html() %}

@@ -28,7 +28,6 @@ The following notification actions are supported:
 
    - email: Send an email
    - sms: Post SMS via SMS Central API
-   - log: Log a WARNING message
 
 ## Installation
 
@@ -79,27 +78,18 @@ options | dict | Dictionary of option names and values
 
 The following action options are recognised:
 
-option | type | actions | description
---- | --- | --- | ---
-hostname | str | email,sms | Hostname to use for sending notification
-port | int | email | TCP port for email submission
-username | str | email,sms | Username for authentication
-password | str | email,sms | Password for authentication
-sender | str | email,sms | Sender string
-timeout | int | email | TCP timeout for email submission
-recipients | list | email | List of email recipient strings
-recipient | str | sms | Recipient phone number
+option | type | description
+--- | --- | ---
+hostname | str | Email submission hostname
+url | str | API Url for SMS sending
+port | int | TCP port for email submission
+username | str | Username for authentication
+password | str | Password for authentication
+sender | str | Sender string
+timeout | int | TCP timeout for email submission
+recipients | list | List of recipient strings
+site | str | Site identifier (default is Fletchck)
 
-Notes:
-
-   - The log action does not recognise any options
-
-Example:
-
-	"actions": { "test action": { "type": "log" } }
-
-Define a single action of type "log"
-called "test action".
 
 ### Checks
 

@@ -6,14 +6,14 @@
 {% block body %}
 <header class="container">
  <div class="ms-2">
- <img class="logoimg" src="{{ static_url("fletchck.svg") }}" alt="{{ handler.settings["site_name"] }}">
+ <a href="/" title="{{ handler.settings["site_name"] }}"><img class="logoimg" src="{{ static_url("fletchck.svg") }}" alt="{{ handler.settings["site_name"] }}"></a>
      {% if status['info'] %}<span class="badge thought text-bg-warning">{{ status['info'] }}</span>{% end %}
  </div>
  <ul class="nav nav-tabs nav-justified">
   <li class="nav-item"><a href="/" class="nav-link{{ ' active' if section == 'check' else ''}}">Checks</a></li>
-  <li class="nav-item"><a href="/action" class="nav-link{{ ' active' if section == 'action' else ''}}">Actions</a></li>
   <li class="nav-item"><a href="/log" class="nav-link{{ ' active' if section == 'log' else ''}}">Log</a></li>
-  <li class="nav-item"><a href="/config" class="nav-link{{ ' active' if section == 'config' else ''}}">Settings</a></li>
+  <li class="nav-item"><a href="/actions" class="nav-link{{ ' active' if section == 'actions' else ''}}">Actions</a></li>
+  <li class="nav-item"><a href="/logout" class="nav-link">Sign Out</a></li>
  </ul>
 </header>
 

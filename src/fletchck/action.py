@@ -29,7 +29,7 @@ def loadAction(name, config):
     return ret
 
 
-class action():
+class BaseAction():
     """Action base class, implements the log type and interface"""
 
     def __init__(self, name=None, options={}):
@@ -47,13 +47,6 @@ class action():
         return defaults.getOpt(key, self.options, list, default)
 
     def _notify(self, source):
-        msg = 'PASS'
-        since = source.lastPass
-        if source.failState:
-            msg = 'FAIL'
-            since = source.lastFail
-        _log.warning('%s %s (%s) %s %s', self.name, source.name,
-                     source.checkType, msg, since)
         return True
 
     def trigger(self, source):
@@ -73,25 +66,26 @@ class action():
         return {'type': self.actionType, 'options': self.options}
 
 
-class sendEmail(action):
+class sendEmail(BaseAction):
     """Send email by configured submit"""
 
     def _notify(self, source):
-        if source.failState:
-            subject = "[%s] %s in FAIL state" % (self.name, source.name)
-            ml = []
-            ml.append('%s in FAIL state at %s' %
-                      (source.name, source.lastFail))
+        site = self.getStrOpt('site', defaults.APPNAME)
+
+        subject = "[%s] %s (%s) in %s state" % (
+            site, source.name, source.checkType, source.getState())
+        ml = []
+        ml.append(
+            '%s (%s) in %s state at %s%s' %
+            (source.name, source.checkType, source.getState(), source.lastPass,
+             '\n\U0001F4A9\U0001F44D' if not source.failState else ''))
+        if source.log:
             ml.append('')
             ml.append('Log:')
             ml.append('')
             for l in source.log:
                 ml.append(l)
-            message = '\n'.join(ml)
-        else:
-            subject = "[%s] %s in PASS state" % (self.name, source.name)
-            message = '%s in PASS state at %s\n\U0001F4A9\U0001F44D' % (
-                source.name, source.lastPass)
+        message = '\n'.join(ml)
         username = self.getStrOpt('username')
         password = self.getStrOpt('password')
         sender = self.getStrOpt('sender')
@@ -125,25 +119,29 @@ class sendEmail(action):
         return ret
 
 
-class apiSms(action):
+class apiSms(BaseAction):
     """Post SMS via smscentral api"""
 
-    def _notify(self, source):
+    def trigger(self, source):
+        message = '%s (%s) in %s state at %s%s'
         if source.failState:
-            message = "%s in FAIL state at %s" % (source.name, source.lastFail)
+            message = message % (source.name, source.checkType,
+                                 source.getState(), source.lastFail, '')
         else:
-            message = "%s in PASS state at %s\n\U0001F4A9\U0001F44D" % (
-                source.name, source.lastPass)
+            message = message % (source.name, source.checkType,
+                                 source.getState(), source.lastPass,
+                                 '\n\U0001F4A9\U0001F44D')
         sender = self.getStrOpt('sender', 'dedicated')
-        recipient = self.getStrOpt('recipient')
+        recipients = [i for i in self.getListOpt('recipients', [])]
         username = self.getStrOpt('username')
         password = self.getStrOpt('password')
         url = self.getStrOpt('url', defaults.SMSCENTRALURL)
 
-        _log.debug('Send sms to %r via %r : %r', recipient, url, message)
-        ret = True
-        if recipient and url:
-            ret = False
+        httpClient = HTTPClient()
+        failCount = 0
+        while recipients and failCount < defaults.ACTIONTRIES:
+            recipient = recipients[0]
+            _log.debug('Send sms to %r via %r : %r', recipient, url, message)
             postBody = urlencode({
                 'ACTION': 'send',
                 'USERNAME': username,
@@ -152,7 +150,6 @@ class apiSms(action):
                 'RECIPIENT': recipient,
                 'MESSAGE_TEXT': message
             })
-            httpClient = HTTPClient()
             try:
                 response = httpClient.fetch(
                     url,
@@ -162,21 +159,16 @@ class apiSms(action):
                     },
                     body=postBody)
                 if response.body == b'0':
-                    ret = True
+                    recipients.pop(0)
                 else:
+                    failCount += 1
                     _log.warning('SMS Notify failed: %r:%r', response.code,
                                  response.body)
             except Exception as e:
+                failCount += 1
                 _log.warning('SMS Notify failed: %s', e)
-        return ret
+        return not recipients
 
 
-class dbusSms(action):
-    """Post sms with ModemManager via dbus"""
-    pass
-
-
-ACTION_TYPES['log'] = action
 ACTION_TYPES['email'] = sendEmail
 ACTION_TYPES['sms'] = apiSms
-ACTION_TYPES['mm'] = dbusSms
