@@ -21,7 +21,7 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "tornado",
+    "tornado>=6.3",
     "passlib",
     "APScheduler",
     "cryptography",

@@ -1,2 +1,2 @@
-include src/fletcher/static/*
-include src/fletcher/templates/*
+include src/fletchck/static/*
+include src/fletchck/templates/*

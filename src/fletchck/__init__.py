@@ -10,9 +10,9 @@ from urllib.parse import quote as pathQuote
 from logging import getLogger, DEBUG, INFO, WARNING, basicConfig, Formatter
 from signal import SIGTERM
 
-basicConfig(level=DEBUG)
+basicConfig(level=INFO)
 _log = getLogger('fletchck')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 
 # Command line options
 define("config", default=None, help="specify site config file", type=str)
