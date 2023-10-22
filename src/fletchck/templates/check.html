@@ -1,20 +1,128 @@
 {% extends "dash.html" %}
 {% block main %}
- {% if check %}
-  <h1>{{ check.name }} ({{ check.checkType }})</h1>
+ {% if check and oldName %}
+  <h1>{{ oldName }} ({{ check.checkType }})</h1>
   <ul>
-   <li>Failstate: {{ check.failState }}</li>
+   <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
    <li>Last Fail: {{ check.lastFail }}</li>
    <li>Last Pass: {{ check.lastPass }}</li>
   </ul>
   {% if check.log %}
-  <h2>Log</h2>
+  <h2>Last Check</h2>
   <pre>{{ '\n'.join(check.log) }}</pre>
   {% end %}
+  <p><a href="/check/{{ site.pathQuote(oldName) + '?run=y' }}" class="btn btn-primary py-2 mb-3">Run Check</a></p>
+  <h2>Configuration</h2>
+ {% else %}
+  <h2>New Check</h2>
  {% end %}
- <h2>Configuration</h2>
- <ul>
-  <li>Type</li>
-  <li>Name</li>
+ {% if formErrors %}<div id="formBody" class="alert alert-warning" role="alert"><p>Form Error:</p><ul>
+ {% for l in formErrors %}
+  <li><em>{{ l }}</em></li>
+ {% end %}
  </ul>
+ {% else %}
+ <div id="formBody" class="alert alert-secondary">
+ {% end %}
+ <form action="/check/{{ site.pathQuote(oldName) }}" method="POST">
+ <input type="hidden" name="oldName" value="{{ oldName }}">
+ <div class="form-floating">
+  <input type="text" class="form-control" id="name" name="name" placeholder="name" value="{{ check.name }}">
+  <label for="name" class="form-label">Name</label>
+ </div>
+ <div class="mb-3 form-floating">
+  <select id="checkType" name="checkType" placeholder="ssh" class="form-select">
+{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'sequence'] %}{% if check.checkType == checkType %}<option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}<option value="{{ checkType }}">{{ checkType }}</option>
+{% end %}{% end %}
+  </select>
+  <label for="checkType" class="form-label">Check type</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="trigger" id="trigger" placeholder="trigger" value="{{ site.getTrigger(check) }}">
+  <label for="trigger" class="form-label">Trigger</label>
+ </div>
+ <div class="mb-3 form-floating">
+  <input type="number" class="form-control" name="threshold" id="threshold" placeholder="1" value="{{ check.threshold }}">
+  <label for="threshold" class="form-label">Fail threshold</label>
+ </div>
+ <div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" value="1" name="passAction" id="passAction" {{ 'checked' if check.passAction else '' }}>
+  <label class="form-check-label" for="passAction">Notify on change to pass</label>
+ </div>
+ <div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" value="1" name="failAction" id="failAction" {{ 'checked' if check.failAction else '' }}>
+  <label class="form-check-label" for="failAction">Notify on change to fail</label>
+ </div>
+
+ <div class="form-floating">
+  <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ check.options['hostname'] if 'hostname' in check.options else '' }}">
+  <label for="hostname" class="form-label">Hostname</label>
+ </div>
+ <div class="form-floating">
+  <input type="number" class="form-control" name="port" id="port" placeholder="12345" value="{{ check.options['port'] if 'port' in check.options else '' }}">
+  <label for="port" class="form-label">Port</label>
+ </div>
+ <div class="form-floating">
+  <input type="number" class="form-control" name="timeout" id="timeout" placeholder="10" value="{{ check.options['timeout'] if 'timeout' in check.options else '' }}">
+  <label for="timeout" class="form-label">Socket timeout (seconds)</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="hostkey" id="hostkey" placeholder="Base64 Hostkey" value="{{ check.options['hostkey'] if 'hostkey' in check.options else '' }}">
+  <label for="hostkey" class="form-label">Server public key (ssh checks)</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="probe" id="probe" placeholder="probe" value="{{ check.options['probe'] if 'probe' in check.options else '' }}">
+  <label for="probe" class="form-label">Probe text (cert checks)</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="reqType" id="reqType" placeholder="request type" value="{{ check.options['reqType'] if 'reqType' in check.options else '' }}">
+  <label for="reqType" class="form-label">Request method (https checks)</label>
+ </div>
+ <div class="form-floating mb-3">
+  <input type="text" class="form-control" name="reqPath" id="reqPath" placeholder="request path" value="{{ check.options['reqPath'] if 'reqPath' in check.options else '' }}">
+  <label for="reqPath" class="form-label">Request path (https checks)</label>
+ </div>
+ <div class="mb-3">
+  <label for="checks" class="form-label">Check sequence (sequence checks)</label>
+  <select class="form-select" multiple size="{{ len(site.checks) }}" id="checks" name="checks">
+   {% for depend in site.checks %}
+     {% if depend != check.name %}
+       <option value="{{ depend }}" {{ 'selected' if 'checks' in check.options and depend in check.options['checks'] else '' }}>{{ depend }}</option>
+     {% end %}
+   {% end %}
+  </select>
+ </div>
+ <div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
+  <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
+ </div>
+ <div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" value="1" name="tls" id="tls" {{ '' if 'tls' in check.options and not check.options['tls'] else 'checked' }}>
+  <label class="form-check-label" for="tls">Use TLS (smtp checks)</label>
+ </div>
+
+ <div class="mb-3">
+  <label for="actions" class="form-label">Actions</label>
+  <select class="form-select" multiple size="{{ len(site.actions) }}" id="actions" name="actions">
+   {% for action in site.actions %}
+     <option value="{{ action }}" {{ 'selected' if action in check.actions else '' }}>{{ action }}</option>
+   {% end %}
+  </select>
+ </div>
+ <div class="mb-3">
+  <label for="depends" class="form-label">Depends</label>
+  <select class="form-select" multiple size="{{ len(site.checks) }}" id="depends" name="depends">
+   {% for depend in site.checks %}
+     {% if depend != check.name %}
+       <option value="{{ depend }}" {{ 'selected' if depend in check.depends else '' }}>{{ depend }}</option>
+     {% end %}
+   {% end %}
+  </select>
+ </div>
+ {% module xsrf_form_html() %}
+ <button class="btn btn-primary py-2 mb-3" type="submit">
+ {{ 'Update' if check and check.name else 'Create Check' }}
+ </button> 
+ </form>
+ </div>
 {% end %}

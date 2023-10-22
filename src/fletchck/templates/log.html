@@ -1,0 +1,7 @@
+{% extends "dash.html" %}
+{% block main %}
+<pre class="my-3">
+{{ '\n'.join(site.log) }}
+</pre>
+<a class="btn btn-primary" href="/log?clear=y" role="button">Clear</a>
+{% end %}

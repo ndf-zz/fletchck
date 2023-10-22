@@ -20,7 +20,7 @@ CHECK_TYPES = {}
 
 
 def timestamp():
-    return datetime.now().astimezone().isoformat()
+    return datetime.now().astimezone().strftime("%d %b %Y %H:%M")
 
 
 def certExpiry(cert):
@@ -73,6 +73,12 @@ def loadCheck(name, config):
             if 'lastPass' in config['data']:
                 if isinstance(config['data']['lastPass'], str):
                     ret.lastPass = config['data']['lastPass']
+            if 'lastCheck' in config['data']:
+                if isinstance(config['data']['lastCheck'], str):
+                    ret.lastCheck = config['data']['lastCheck']
+            if 'softFail' in config['data']:
+                if isinstance(config['data']['softFail'], str):
+                    ret.softFail = config['data']['softFail']
             if 'log' in config['data']:
                 if isinstance(config['data']['log'], list):
                     ret.log = config['data']['log']
@@ -81,7 +87,7 @@ def loadCheck(name, config):
     return ret
 
 
-class check():
+class BaseCheck():
     """Check base class"""
 
     def __init__(self, name, options={}):
@@ -96,11 +102,13 @@ class check():
         self.actions = {}
         self.depends = {}
 
-        self.failState = False
+        self.failState = True
+        self.softFail = None
         self.failCount = 0
         self.log = []
         self.lastFail = None
         self.lastPass = None
+        self.lastCheck = None
 
     def _runCheck(self):
         """Perform the required check and return fail state"""
@@ -121,8 +129,11 @@ class check():
     def update(self):
         """Run check, update state and trigger events as required"""
         thisTime = timestamp()
+        self.lastCheck = thisTime
+        self.softFail = None
         for d in self.depends:
             if self.depends[d].failState:
+                self.softFail = d
                 _log.info('%s (%s) SOFTFAIL (depends=%s) %s', self.name,
                           self.checkType, d, thisTime)
                 self.log = ['SOFTFAIL (depends=%s)' % (d)]
@@ -135,19 +146,19 @@ class check():
                    self.failCount, thisTime)
 
         if curFail:
-            _log.info('%s (%s) FAIL %s', self.name, self.checkType, thisTime)
             self.failCount += 1
             if self.failCount >= self.threshold:
                 if not self.failState:
+                    _log.warning('%s (%s) FAIL', self.name, self.checkType)
                     self.failState = True
                     self.lastFail = thisTime
                     if self.failAction:
                         self.notify()
         else:
-            _log.info('%s (%s) PASS %s', self.name, self.checkType, thisTime)
             self.failCount = 0
             self.log.clear()
             if self.failState:
+                _log.warning('%s (%s) PASS', self.name, self.checkType)
                 self.failState = False
                 self.lastPass = thisTime
                 if self.passAction:
@@ -168,12 +179,19 @@ class check():
         """Add check to the set of dependencies"""
         if check is not self:
             self.depends[check.name] = check
-            _log.debug('Added %s as a dep for %s', check.name, self.name)
+            _log.debug('Added dependency %s to %s', check.name, self.name)
 
     def del_depend(self, name):
         """Remove check from the set of dependencies"""
         if name in self.depends:
             del self.depends[name]
+            _log.debug('Removed dependency %s from %s', name, self.name)
+
+    def replace_depend(self, name, check):
+        """Replace dependency with new entry if it existed"""
+        if name in self.depends:
+            self.del_depend(name)
+            self.add_depend(check)
 
     def getStrOpt(self, key, default=None):
         return defaults.getOpt(key, self.options, str, default)
@@ -201,17 +219,19 @@ class check():
                 'failState': self.failState,
                 'failCount': self.failCount,
                 'log': self.log,
+                'softFail': self.softFail,
+                'lastCheck': self.lastCheck,
                 'lastFail': self.lastFail,
                 'lastPass': self.lastPass
             }
         }
 
 
-class submitCheck(check):
+class submitCheck(BaseCheck):
     """SMTP-over-SSL / submissions check"""
 
     def _runCheck(self):
-        hostname = self.getStrOpt('hostname')
+        hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port', 0)
         timeout = self.getIntOpt('timeout', defaults.SUBMITTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
@@ -240,12 +260,12 @@ class submitCheck(check):
         return failState
 
 
-class smtpCheck(check):
+class smtpCheck(BaseCheck):
     """SMTP service check"""
 
     def _runCheck(self):
         tls = self.getBoolOpt('tls', True)
-        hostname = self.getStrOpt('hostname')
+        hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port', 0)
         timeout = self.getIntOpt('timeout', defaults.SMTPTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
@@ -274,11 +294,11 @@ class smtpCheck(check):
         return failState
 
 
-class imapCheck(check):
+class imapCheck(BaseCheck):
     """IMAP4+SSL service check"""
 
     def _runCheck(self):
-        hostname = self.getStrOpt('hostname')
+        hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port', IMAP4_SSL_PORT)
         timeout = self.getIntOpt('timeout', defaults.IMAPTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
@@ -307,11 +327,11 @@ class imapCheck(check):
         return failState
 
 
-class certCheck(check):
+class certCheck(BaseCheck):
     """TLS Certificate check"""
 
     def _runCheck(self):
-        hostname = self.getStrOpt('hostname')
+        hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port')
         timeout = self.getIntOpt('timeout', defaults.CERTTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
@@ -360,11 +380,11 @@ class certCheck(check):
         return failState
 
 
-class httpsCheck(check):
+class httpsCheck(BaseCheck):
     """HTTPS service check"""
 
     def _runCheck(self):
-        hostname = self.getStrOpt('hostname')
+        hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port')
         timeout = self.getIntOpt('timeout', defaults.HTTPSTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
@@ -396,11 +416,11 @@ class httpsCheck(check):
         return failState
 
 
-class sshCheck(check):
+class sshCheck(BaseCheck):
     """SSH service check"""
 
     def _runCheck(self):
-        hostname = self.getStrOpt('hostname')
+        hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port', 22)
         timeout = self.getIntOpt('timeout', defaults.SSHTIMEOUT)
         hostkey = self.getStrOpt('hostkey')
@@ -429,16 +449,35 @@ class sshCheck(check):
         return failState
 
 
-class sequenceCheck(check):
+class sequenceCheck(BaseCheck):
     """Perform a sequence of checks in turn"""
 
     def __init__(self, name, options={}):
         super().__init__(name, options)
-        self.checks = []
+        self.checks = {}
+
+    def add_check(self, check):
+        """Add check to the sequence"""
+        if check is not self:
+            self.checks[check.name] = check
+            _log.debug('Added check %s to sequence %s', check.name, self.name)
+
+    def del_check(self, name):
+        """Remove check from the sequence"""
+        if name in self.checks:
+            del self.checks[name]
+            _log.debug('Removed check %s from sequence %s', name, self.name)
+
+    def replace_check(self, name, check):
+        """Replace sequence entry with new check if it existed"""
+        if name in self.checks:
+            self.del_check(name)
+            self.add_check(check)
 
     def _runCheck(self):
         failState = False
-        for c in self.checks:
+        for name in self.checks:
+            c = self.checks[name]
             cFail = c.update()
             cMsg = 'PASS'
             if cFail:

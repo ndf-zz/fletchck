@@ -74,8 +74,7 @@ class PackageFileHandler(tornado.web.StaticFileHandler):
                     return
 
     def set_default_headers(self, *args, **kwargs):
-        self.set_header("Content-Security-Policy",
-                        "frame-ancestors 'none'; default-src 'self'")
+        self.set_header("Content-Security-Policy", defaults.CSP)
         self.set_header("Strict-Transport-Security", "max-age=31536000")
         self.set_header("X-Frame-Options", "deny")
         self.set_header("X-Content-Type-Options", "nosniff")
@@ -92,8 +91,12 @@ class Application(tornado.web.Application):
     def __init__(self, site):
         handlers = [
             (r"/", HomeHandler, dict(site=site)),
+            (r"/action", HomeHandler, dict(site=site)),
             (r"/check/(.*)", CheckHandler, dict(site=site)),
+            #(r"/action/(.*)", ActionHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
+            (r"/log", LogHandler, dict(site=site)),
+            #(r"/config", ConfigHandler, dict(site=site)),
             (r"/status", StatusHandler, dict(site=site)),
             (r"/logout", AuthLogoutHandler, dict(site=site)),
         ]
@@ -128,8 +131,7 @@ class BaseHandler(tornado.web.RequestHandler):
         return self.get_signed_cookie("user", max_age_days=defaults.AUTHEXPIRY)
 
     def set_default_headers(self, *args, **kwargs):
-        self.set_header("Content-Security-Policy",
-                        "frame-ancestors 'none'; default-src 'self'")
+        self.set_header("Content-Security-Policy", defaults.CSP)
         self.set_header("Strict-Transport-Security", "max-age=31536000")
         self.set_header("X-Frame-Options", "deny")
         self.set_header("X-Content-Type-Options", "nosniff")
@@ -145,31 +147,170 @@ class HomeHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self):
+        section = 'check'
+        if 'action' in self.request.path:
+            section = 'action'
         status = self._site.getStatus()
-        self.render("home.html", status=status)
+        self.render("home.html",
+                    site=self._site,
+                    status=status,
+                    section=section)
+
+
+class LogHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    async def get(self):
+        if self.get_argument('clear', ''):
+            self._site.log.clear()
+        section = 'log'
+        status = self._site.getStatus()
+        self.render("log.html",
+                    site=self._site,
+                    status=status,
+                    section=section)
 
 
 class CheckHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self, path):
-        _log.debug('Path = %r', path)
+        section = 'check'
         check = None
+        _log.debug('Path : %r', path)
         if path:
             if path in self._site.checks:
                 check = self._site.checks[path]
+                if self.get_argument('delete', ''):
+                    _log.debug('Deleting %s without undo', path)
+                    self._site.deleteCheck(path)
+                    self.redirect('/')
+                    return
+                elif self.get_argument('run', ''):
+                    _log.debug('Manually running %s', path)
+                    await tornado.ioloop.IOLoop.current().run_in_executor(
+                        None, self._site.runCheck, path)
+                    self.redirect('/check/' + self._site.pathQuote(path))
+                    return
             else:
                 raise tornado.web.HTTPError(404)
         else:
-            # maybe creating a new check
-            _log.debug('Creating a new one?')
+            check = util.check.loadCheck(name='', config={'type': 'ssh'})
         status = self._site.getStatus()
-        self.render("check.html", status=status, check=check)
+        self.render("check.html",
+                    status=status,
+                    oldName=path,
+                    check=check,
+                    section=section,
+                    site=self._site,
+                    formErrors=None)
 
     @tornado.web.authenticated
     async def post(self, path):
-        status = self._site.getStatus()
-        self.render("check.html", status=status)
+        oldConf = {}
+        if path:
+            if path in self._site.checks:
+                oldConf = self._site.checks[path].flatten()
+            else:
+                raise tornado.web.HTTPError(404)
+
+        # transfer form data into new config
+        oldName = self.get_argument('oldName', None)
+        if oldName != path:
+            _log.error('Form error: oldName does not match path request')
+            raise tornado.web.HTTPError(500)
+        checkType = self.get_argument('checkType', None)
+        checkName = self.get_argument('name', None)
+        newConf = {"type": checkType}
+        newConf['trigger'] = util.text2Trigger(self.get_argument(
+            'trigger', ''))
+        temp = self.get_argument('threshold', '')
+        if temp:
+            newConf['threshold'] = int(temp)
+        newConf['passAction'] = bool(self.get_argument('passAction', None))
+        newConf['failAction'] = bool(self.get_argument('failAction', None))
+        newConf['options'] = {}
+        # string options
+        for key in ['hostname', 'probe', 'reqType', 'reqPath', 'hostkey']:
+            temp = self.get_argument(key, '')
+            if temp:
+                newConf['options'][key] = temp
+        # int options
+        for key in ['port', 'timeout']:
+            temp = self.get_argument(key, '')
+            if temp:
+                newConf['options'][key] = int(temp)
+        # tls is default on
+        temp = self.get_argument('tls', None)
+        if not temp:
+            newConf['options']['tls'] = False
+        # selfsigned is default off
+        temp = self.get_argument('selfsigned', None)
+        if temp:
+            newConf['options']['selfsigned'] = True
+        temp = self.get_arguments('checks')
+        if temp:
+            newConf['options']['checks'] = temp
+        newConf['actions'] = self.get_arguments('actions')
+        newConf['depends'] = self.get_arguments('depends')
+
+        # final checks
+        formErrors = []
+        if not checkName:
+            formErrors.append('Missing required check name')
+        if not oldName or checkName != oldName:
+            if checkName in self._site.checks:
+                formErrors.append('Name already in use by another check')
+
+        # build a temporary check object using the rest of the config
+        check = util.check.loadCheck(name=checkName, config=newConf)
+        for action in newConf['actions']:
+            if action in self._site.actions:
+                check.add_action(self._site.actions[action])
+            else:
+                formErrors.append('Invalid action %r' % (action))
+        for depend in newConf['depends']:
+            if depend in self._site.checks:
+                check.add_depend(self._site.checks[depend])
+            else:
+                formErrors.append('Invalid check dependency %r' % (depend))
+
+        if formErrors:
+            status = self._site.getStatus()
+            self.render("check.html",
+                        status=status,
+                        oldName=path,
+                        check=check,
+                        site=self._site,
+                        section=section,
+                        formErrors=formErrors)
+            return
+
+        if 'data' in oldConf:
+            newConf['data'] = oldConf['data']
+
+        # if form input ok - check changes
+        async with self._site._lock:
+            runCheck = False
+            if path:
+                self._site.updateCheck(path, checkName, newConf)
+            else:
+                self._site.addCheck(checkName, newConf)
+                runCheck = True
+
+            # save out config
+            await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.saveConfig)
+
+        # run check and wait for result
+        if runCheck:
+            await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.runCheck, checkName)
+
+        if path:
+            self.redirect('/check/' + self._site.pathQuote(checkName))
+        else:
+            self.redirect('/')
 
 
 class StatusHandler(BaseHandler):
@@ -210,8 +351,11 @@ class AuthLoginHandler(BaseHandler):
                                    secure=True,
                                    samesite='Strict')
             self.clear_cookie("_xsrf", secure=True, samesite='Strict')
+            _log.warning('Login username=%r (%s)', un, self.request.remote_ip)
             self.redirect('/')
         else:
+            _log.warning('Invalid login username=%r (%s)', un,
+                         self.request.remote_ip)
             self.render("login.html", error='Invalid login details')
 
 

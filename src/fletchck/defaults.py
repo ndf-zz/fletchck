@@ -27,6 +27,12 @@ WEBUICONFIG = {
     'users': None,
 }
 
+# Format for the volatile log
+LOGFORMAT = '%(asctime)s %(message)s'
+
+# Site CSP
+CSP = "frame-ancestors 'none'; img-src data: 'self'; default-src 'self'"
+
 # Auth cookie expiry in days
 AUTHEXPIRY = 2
 

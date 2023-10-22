@@ -1,25 +1,14 @@
 {% extends "dash.html" %}
 {% block main %}
  <div class="table-responsive">
-  <table class="table table-striped">
-   <thead>
-    <tr>
-     <th>Check</th>
-     <th></th>
-     <th></th>
-    </tr>
-   </thead>
+  <table class="table">
    <tbody>
     {% if status['checks'] %}
      {% for check in status['checks'] %}
       <tr {% if status['checks'][check]['failState'] %}class="table-warning"{% end %}>
        <td>{{ check }} ({{ status['checks'][check]['checkType'] }})</td>
-       <td>{% if status['checks'][check]['failState'] %}<img src="{{ static_url("exclamation-triangle.svg") }}" width="16" alt="FAIL" class="me-2">{{ status['checks'][check]['lastFail'] }}{% else %}<img src="{{ static_url("check-circle.svg") }}" alt="PASS" width="16" class="me-2">{{ status['checks'][check]['lastPass']}}{% end %}</td>
-       <td>
-        <a href="/check/{{ url_escape(check) }}"><img src="{{ static_url("caret-right-square.svg") }}" alt="run" width="16" class="me-2"></a>
-        <a href="/check/{{ url_escape(check) }}"><img src="{{ static_url("pencil.svg") }}" alt="edit" width="16" class="me-2"></a>
-        <a href="/check/{{ url_escape(check) }}"><img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16" class="me-2"></a>
-       </td>
+       <td>{% if status['checks'][check]['failState'] %}<img src="{{ static_url("exclamation-triangle.svg") }}" width="16" alt="FAIL" title="FAIL" class="me-2">{{ status['checks'][check]['lastFail'] }}{% elif status['checks'][check]['softFail'] %}<img src="{{ static_url("exclamation-circle.svg") }}" alt="SOFTFAIL" title="SOFTFAIL" width="16" class="me-2">depends on {{ status['checks'][check]['softFail'] }}{% else %}<img src="{{ static_url("check-circle.svg") }}" alt="PASS" title="PASS" width="16" class="me-2">{{ status['checks'][check]['lastPass']}}{% end %}</td>
+       <td class="text-nowrap text-end">{% if status['checks'][check]['trigger'] %}{% if 'interval' in status['checks'][check]['trigger'] %}<a href="/check/{{ site.pathQuote(check) }}" title="Interval"><img src="{{ static_url("clock-history.svg") }}" alt="interval" width="16" class="me-2"></a>{% elif 'cron' in status['checks'][check]['trigger'] %}<a href="/check/{{ site.pathQuote(check) }}" title="Cron"><img src="{{ static_url("calendar2-day.svg") }}" alt="cron" width="16" class="me-2"></a>{% end %}{% end %}<a href="/check/{{ site.pathQuote(check) }}" title="Edit"><img src="{{ static_url("pencil.svg") }}" alt="edit" width="16" class="me-3"></a>&nbsp;<a href="/check/{{ site.pathQuote(check) + '?delete=y' }}" title="Delete"><img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16"></a></td>
       </tr>
      {% end %}
     {% else %}
@@ -27,6 +16,6 @@
     {% end %}
    </tbody>
   </table>
-  <a class="btn btn-primary" href="/check/new" role="button">Add Check</a>
+  <a class="btn btn-primary" href="/check/" role="button">Add Check</a>
  </div>
 {% end %}

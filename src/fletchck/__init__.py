@@ -6,7 +6,8 @@ import os.path
 from tornado.options import parse_command_line, define, options
 from . import util
 from . import defaults
-from logging import getLogger, DEBUG, INFO, WARNING, basicConfig
+from urllib.parse import quote as pathQuote
+from logging import getLogger, DEBUG, INFO, WARNING, basicConfig, Formatter
 from signal import SIGTERM
 
 basicConfig(level=DEBUG)
@@ -24,10 +25,12 @@ class FletchSite():
 
     def __init__(self):
         self._shutdown = None
+        self._lock = asyncio.Lock()
 
         self.base = '.'
         self.configFile = defaults.CONFIGPATH
         self.doWebUi = True
+        self.log = []
 
         self.scheduler = None
         self.actions = None
@@ -36,12 +39,35 @@ class FletchSite():
 
     def _sigterm(self):
         """Handle TERM signal"""
-        _log.info('Site terminated by SIGTERM')
+        _log.warning('Site terminated by SIGTERM')
         self._shutdown.set()
+
+    @classmethod
+    def pathQuote(cls, path):
+        """URL escape path element for use in link text"""
+        return pathQuote(path, safe='')
 
     def loadConfig(self):
         """Load site from config"""
         util.loadSite(self)
+
+    def addCheck(self, name, config):
+        """Add the named check to site"""
+        util.addCheck(self, name, config)
+
+    def updateCheck(self, name, newName, config):
+        """Update existing check to match new config"""
+        util.updateCheck(self, name, newName, config)
+
+    def deleteCheck(self, name):
+        """Remove a check from a running site"""
+        util.deleteCheck(self, name)
+
+    def runCheck(self, name):
+        """Run a check by name"""
+        if name in self.checks:
+            _log.debug('Running check %s', name)
+            self.checks[name].update()
 
     def saveConfig(self):
         """Save site to config"""
@@ -65,6 +91,9 @@ class FletchSite():
             self.configFile = defaults.CONFIGPATH
         return True
 
+    def getTrigger(self, check):
+        return util.trigger2Text(check.trigger)
+
     def getStatus(self):
         status = {'fail': False, 'info': None, 'checks': {}}
         failCount = 0
@@ -76,16 +105,24 @@ class FletchSite():
             status['checks'][checkName] = {
                 'checkType': check.checkType,
                 'failState': check.failState,
-                'lastFail': check.lastFail,
-                'lastPass': check.lastPass
+                'trigger': check.trigger,
+                'softFail': check.softFail if check.softFail else '',
+                'lastFail': check.lastFail if check.lastFail else '',
+                'lastPass': check.lastPass if check.lastPass else ''
             }
         if failCount > 0:
-            status['info'] = '%d check%s currently in fail state' % (
+            status['info'] = '%d check%s in fail state' % (
                 failCount, 's' if failCount > 1 else '')
         return status
 
     async def run(self):
         """Load and run site in async loop"""
+        rootLogger = getLogger()
+        logHandler = util.LogHandler(self)
+        logHandler.setLevel(WARNING)
+        logHandler.setFormatter(Formatter(defaults.LOGFORMAT))
+        rootLogger.addHandler(logHandler)
+
         self.loadConfig()
         if self.scheduler is None:
             _log.error('Error reading site config')
@@ -103,6 +140,7 @@ class FletchSite():
             _log.info('Running without webui')
 
         try:
+            _log.warning('Starting')
             await self._shutdown.wait()
             self.saveConfig()
         except Exception as e:
