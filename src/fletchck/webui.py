@@ -107,11 +107,6 @@ class Application(tornado.web.Application):
             static_path='static',
             static_url_prefix='/s/',
             static_handler_class=PackageFileHandler,
-            xsrf_cookies=True,
-            xsrf_cookie_kwargs={
-                'secure': True,
-                'samesite': 'Strict'
-            },
             template_loader=templateLoader,
             cookie_secret=util.token_hex(32),
             login_url='/login',
@@ -421,7 +416,6 @@ class AuthLoginHandler(BaseHandler):
                                    expires_days=None,
                                    secure=True,
                                    samesite='Strict')
-            self.clear_cookie("_xsrf", secure=True, samesite='Strict')
             _log.warning('Login username=%r (%s)', un, self.request.remote_ip)
             self.redirect('/')
         else:
@@ -434,7 +428,6 @@ class AuthLogoutHandler(BaseHandler):
 
     def get(self):
         self.clear_cookie("user", secure=True, samesite='Strict')
-        self.clear_cookie("_xsrf", secure=True, samesite='Strict')
         self.set_header("Clear-Site-Data", '"*"')
         self.redirect('/login')
 
