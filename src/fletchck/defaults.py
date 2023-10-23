@@ -9,6 +9,9 @@ APPNAME = 'Fletchck'
 # Hostname or IP to listen on
 HOSTNAME = 'localhost'
 
+# Fallback default timezone (none = localtime)
+TIMEZONE = None
+
 # Configuration filename
 CONFIGPATH = 'fletchck.conf'
 

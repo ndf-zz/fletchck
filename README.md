@@ -52,6 +52,7 @@ object with the following keys and values:
 key | type | description
 --- | --- | ---
 base | str | Full path to location of site configuration file
+timezone | str | Time zone for notifications, schedules and interface
 webui | dict | Web user interface configuration (see Web UI below)
 actions | dict | Notification actions (see Actions below)
 checks | dict | Service checks (see Checks below)
@@ -65,6 +66,7 @@ Notes:
      as a dictionary key and that can be serialised in JSON.
    - Duplicate action and check names will overwrite earlier
      definitions with the same name.
+   - Timezone should be a zoneinfo key or null to use host localtime
 
 ### Actions
 
@@ -116,6 +118,7 @@ option | type | description
 hostname | str | Hostname or IP address of target service
 port | int | TCP port of target service
 timeout | int | Socket timeout in seconds
+timezone | str | Timezone for schedule and notification
 selfsigned | bool | If set, TLS sessions will not validate service certificate
 tls | bool | (smtp) If set, call starttls to initiate TLS
 probe | str | (cert) send str probe to service after TLS negotiation

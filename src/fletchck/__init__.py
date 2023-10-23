@@ -28,6 +28,7 @@ class FletchSite():
         self._lock = asyncio.Lock()
 
         self.base = '.'
+        self.timezone = None
         self.configFile = defaults.CONFIGPATH
         self.doWebUi = True
         self.log = []
@@ -57,7 +58,8 @@ class FletchSite():
         fakeCheck = util.check.BaseCheck('Notification')
         fakeCheck.checkType = 'action-test'
         fakeCheck.failState = False
-        fakeCheck.lastPass = util.check.timestamp()
+        fakeCheck.timezone = self.timezone
+        fakeCheck.lastPass = util.check.timestamp(self.timezone)
         fakeCheck.log = ['Testing action notification to:', 'email', 'sms']
         emailOK = False
         if 'email' in self.actions:

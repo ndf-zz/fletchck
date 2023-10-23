@@ -2,6 +2,7 @@
 """Machine check classes"""
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 from smtplib import SMTP, SMTP_SSL
@@ -19,11 +20,21 @@ getLogger('paramiko.transport').setLevel(WARNING)
 CHECK_TYPES = {}
 
 
-def timestamp():
-    return datetime.now().astimezone().strftime("%d %b %Y %H:%M")
+def timeString(timezone=None):
+    return datetime.now().astimezone(timezone).strftime("%d %b %Y %H:%M %Z")
 
 
-def certExpiry(cert):
+def getZone(timezone=None):
+    """Return a zoneinfo if possible"""
+    ret = None
+    try:
+        ret = ZoneInfo(timezone)
+    except Exception:
+        _log.warning('Ignored invalid timezone %r', timezone)
+    return ret
+
+
+def certExpiry(cert, timezone):
     """Raise SSL certificate error if about to expire"""
     if cert is not None and 'notAfter' in cert:
         expiry = ssl.cert_time_to_seconds(cert['notAfter'])
@@ -39,13 +50,14 @@ def certExpiry(cert):
     return True
 
 
-def loadCheck(name, config):
+def loadCheck(name, config, timezone=None):
     """Create and return a check object for the provided flat config"""
     ret = None
     if config['type'] in CHECK_TYPES:
         options = defaults.getOpt('options', config, dict, {})
         ret = CHECK_TYPES[config['type']](name, options)
         ret.checkType = config['type']
+        ret.timezone = timezone
         if 'trigger' in config and isinstance(config['trigger'], dict):
             ret.trigger = config['trigger']
         if 'threshold' in config and isinstance(config['threshold'], int):
@@ -55,6 +67,8 @@ def loadCheck(name, config):
             ret.failAction = config['failAction']
         if 'passAction' in config and isinstance(config['passAction'], bool):
             ret.passAction = config['passAction']
+        if 'timezone' in options and isinstance(options['timezone'], str):
+            ret.timezone = getZone(options['timezone'])
         if 'data' in config:
             if 'failState' in config['data']:
                 if isinstance(config['data']['failState'], bool):
@@ -98,6 +112,7 @@ class BaseCheck():
         self.options = options
         self.checkType = None
         self.trigger = None
+        self.timezone = None
 
         self.actions = {}
         self.depends = {}
@@ -128,7 +143,7 @@ class BaseCheck():
 
     def update(self):
         """Run check, update state and trigger events as required"""
-        thisTime = timestamp()
+        thisTime = timeString(self.timezone)
         self.lastCheck = thisTime
         self.softFail = None
         for d in self.depends:

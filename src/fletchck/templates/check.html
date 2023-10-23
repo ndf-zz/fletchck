@@ -66,6 +66,10 @@
   <label for="timeout" class="form-label">Socket timeout (seconds)</label>
  </div>
  <div class="form-floating">
+  <input type="text" class="form-control" name="timezone" id="timezone" placeholder="timezone" value="{{ check.options['timezone'] if 'timezone' in check.options else '' }}">
+  <label for="timezone" class="form-label">Service timezone</label>
+ </div>
+ <div class="form-floating">
   <input type="text" class="form-control" name="hostkey" id="hostkey" placeholder="Base64 Hostkey" value="{{ check.options['hostkey'] if 'hostkey' in check.options else '' }}">
   <label for="hostkey" class="form-label">Server public key (ssh checks)</label>
  </div>

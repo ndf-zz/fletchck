@@ -237,7 +237,9 @@ def randPass():
 
 def saveSite(site):
     """Save the current site state to disk"""
-    dstCfg = {'base': site.base, 'webui': None}
+    dstCfg = {'base': site.base, 'timezone': None, 'webui': None}
+    if site.timezone is not None:
+        dstCfg['timezone'] = site.timezone.key
     if site.webCfg is not None:
         dstCfg['webui'] = {}
         for k in defaults.WEBUICONFIG:
@@ -283,6 +285,7 @@ def initSite(path, webUi=True):
     # create initial configuration
     siteCfg = {}
     siteCfg['base'] = cfgPath
+    siteCfg['timezone'] = defaults.TIMEZONE
     if webUi:
         siteCfg['webui'] = dict(defaults.WEBUICONFIG)
         siteCfg['webui']['port'] = 30000 + randbits(15)
@@ -366,7 +369,7 @@ def addAction(site, name, config):
 
 def addCheck(site, name, config):
     """Add the named check to running site"""
-    newCheck = check.loadCheck(name, config)
+    newCheck = check.loadCheck(name, config, site.timezone)
 
     # add actions to check
     if 'actions' in config:
@@ -398,17 +401,22 @@ def addCheck(site, name, config):
 
     # schedule check
     if newCheck.trigger is not None:
-        trigOpts = {}
+        trigOpts = None
         trigType = None
         if 'interval' in newCheck.trigger:
             trigType = 'interval'
-            trigOpts = newCheck.trigger['interval']
+            trigOpts = dict(newCheck.trigger['interval'])
         elif 'cron' in newCheck.trigger:
             trigType = 'cron'
-            trigOpts = newCheck.trigger['cron']
+            trigOpts = dict(newCheck.trigger['cron'])
         if trigType is not None:
             _log.debug('Adding %s %s trigger to schedule: %r', name, trigType,
                        trigOpts)
+            if 'timezone' not in trigOpts:
+                if newCheck.timezone:
+                    trigOpts['timezone'] = newCheck.timezone
+                elif site.timezone:
+                    trigOpts['timezone'] = site.timezone
             site.scheduler.add_job(newCheck.update,
                                    trigType,
                                    id=name,
@@ -454,6 +462,9 @@ def loadSite(site):
         if 'base' in srcCfg and isinstance(srcCfg['base'], str):
             site.base = srcCfg['base']
 
+        if 'timezone' in srcCfg and isinstance(srcCfg['timezone'], str):
+            site.timezone = check.getZone(srcCfg['timezone'])
+
         if 'webui' in srcCfg and isinstance(srcCfg['webui'], dict):
             site.webCfg = {}
             for k in defaults.WEBUICONFIG:
@@ -481,7 +492,8 @@ def loadSite(site):
         if 'checks' in srcCfg and isinstance(srcCfg['checks'], dict):
             for c in srcCfg['checks']:
                 if isinstance(srcCfg['checks'][c], dict):
-                    newCheck = check.loadCheck(c, srcCfg['checks'][c])
+                    newCheck = check.loadCheck(c, srcCfg['checks'][c],
+                                               site.timezone)
                     # add actions
                     if 'actions' in srcCfg['checks'][c]:
                         if isinstance(srcCfg['checks'][c]['actions'], list):
@@ -507,19 +519,24 @@ def loadSite(site):
                             if s in site.checks:
                                 site.checks[c].add_check(site.checks[s])
             if site.checks[c].trigger is not None:
-                trigOpts = {}
+                trigOpts = None
                 trigType = None
                 if 'interval' in site.checks[c].trigger:
                     if isinstance(site.checks[c].trigger['interval'], dict):
-                        trigOpts = site.checks[c].trigger['interval']
+                        trigOpts = dict(site.checks[c].trigger['interval'])
                     trigType = 'interval'
                 elif 'cron' in site.checks[c].trigger:
                     if isinstance(site.checks[c].trigger['cron'], dict):
-                        trigOpts = site.checks[c].trigger['cron']
+                        trigOpts = dict(site.checks[c].trigger['cron'])
                     trigType = 'cron'
                 if trigType is not None:
                     _log.debug('Adding %s trigger to check %s: %r', trigType,
                                c, trigOpts)
+                    if 'timezone' not in trigOpts:
+                        if site.checks[c].timezone:
+                            trigOpts['timezone'] = site.checks[c].timezone
+                        elif site.timezone:
+                            trigOpts['timezone'] = site.timezone
                     scheduler.add_job(site.checks[c].update,
                                       trigType,
                                       id=c,

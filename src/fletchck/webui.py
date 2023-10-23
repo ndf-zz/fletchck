@@ -180,7 +180,9 @@ class CheckHandler(BaseHandler):
             else:
                 raise tornado.web.HTTPError(404)
         else:
-            check = util.check.loadCheck(name='', config={'type': 'ssh'})
+            check = util.check.loadCheck(name='',
+                                         config={'type': 'ssh'},
+                                         timezone=self._site.timezone)
         status = self._site.getStatus()
         self.render("check.html",
                     status=status,
@@ -200,6 +202,7 @@ class CheckHandler(BaseHandler):
                 raise tornado.web.HTTPError(404)
 
         # transfer form data into new config
+        formErrors = []
         oldName = self.get_argument('oldName', None)
         if oldName != path:
             _log.error('Form error: oldName does not match path request')
@@ -220,6 +223,13 @@ class CheckHandler(BaseHandler):
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = temp
+        # timezone requires a little care
+        temp = self.get_argument('timezone', '')
+        if temp:
+            newConf['options']['timezone'] = temp
+            zinf = util.check.getZone(temp)
+            if zinf is None:
+                formErrors.append('Invalid timezone %r' % (temp))
         # int options
         for key in ['port', 'timeout']:
             temp = self.get_argument(key, '')
@@ -243,7 +253,6 @@ class CheckHandler(BaseHandler):
         newConf['depends'] = self.get_arguments('depends')
 
         # final checks
-        formErrors = []
         if not checkName:
             formErrors.append('Missing required check name')
         if not oldName or checkName != oldName:
@@ -251,7 +260,9 @@ class CheckHandler(BaseHandler):
                 formErrors.append('Name already in use by another check')
 
         # build a temporary check object using the rest of the config
-        check = util.check.loadCheck(name=checkName, config=newConf)
+        check = util.check.loadCheck(name=checkName,
+                                     config=newConf,
+                                     timezone=self._site.timezone)
         for action in newConf['actions']:
             if action:
                 if action in self._site.actions:
