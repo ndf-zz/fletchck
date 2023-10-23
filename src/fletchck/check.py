@@ -34,7 +34,7 @@ def getZone(timezone=None):
     return ret
 
 
-def certExpiry(cert, timezone):
+def certExpiry(cert):
     """Raise SSL certificate error if about to expire"""
     if cert is not None and 'notAfter' in cert:
         expiry = ssl.cert_time_to_seconds(cert['notAfter'])
