@@ -14,7 +14,7 @@ import ssl
 import socket
 
 _log = getLogger('fletchck.check')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 getLogger('paramiko.transport').setLevel(WARNING)
 
 CHECK_TYPES = {}
@@ -407,8 +407,8 @@ class httpsCheck(BaseCheck):
         port = self.getIntOpt('port')
         timeout = self.getIntOpt('timeout', defaults.HTTPSTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
-        reqType = self.getStrOpt('request', 'HEAD')
-        reqPath = self.getStrOpt('path', '/')
+        reqType = self.getStrOpt('reqType', 'HEAD')
+        reqPath = self.getStrOpt('reqPath', '/')
 
         failState = True
         try:
