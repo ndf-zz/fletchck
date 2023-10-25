@@ -13,7 +13,7 @@ from . import util
 from logging import getLogger, DEBUG, INFO, WARNING
 
 _log = getLogger('fletchck.webui')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 
 
 class PackageLoader(tornado.template.BaseLoader):

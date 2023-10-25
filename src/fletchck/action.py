@@ -12,7 +12,7 @@ from email.utils import make_msgid, formatdate
 import ssl
 
 _log = getLogger('fletchck.action')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 
 ACTION_TYPES = {}
 

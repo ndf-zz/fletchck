@@ -19,7 +19,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
 _log = getLogger('fletchck.util')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 getLogger('apscheduler.executors').setLevel(WARNING)
 getLogger('apscheduler.executors.default').setLevel(WARNING)
 
