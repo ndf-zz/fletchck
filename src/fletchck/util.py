@@ -193,9 +193,6 @@ def text2Trigger(triggerText):
                     trigMap[key] = val
                     nextVal = []
 
-                # !! TEMP !!
-                _log.debug('trigger is now: %r', trigger)
-
                 # try and create a trigger from the definition
                 if 'interval' in trigger:
                     t = IntervalTrigger(**trigMap)

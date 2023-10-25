@@ -63,6 +63,8 @@ def loadCheck(name, config, timezone=None):
         if 'threshold' in config and isinstance(config['threshold'], int):
             if config['threshold'] > 0:
                 ret.threshold = config['threshold']
+        if 'priority' in config and isinstance(config['priority'], int):
+            ret.priority = config['priority']
         if 'failAction' in config and isinstance(config['failAction'], bool):
             ret.failAction = config['failAction']
         if 'passAction' in config and isinstance(config['passAction'], bool):
@@ -109,6 +111,7 @@ class BaseCheck():
         self.failAction = True
         self.passAction = True
         self.threshold = 1
+        self.priority = 0
         self.options = options
         self.checkType = None
         self.trigger = None
@@ -225,6 +228,7 @@ class BaseCheck():
             'type': self.checkType,
             'trigger': self.trigger,
             'threshold': self.threshold,
+            'priority': self.priority,
             'failAction': self.failAction,
             'passAction': self.passAction,
             'options': self.options,
@@ -491,7 +495,15 @@ class sequenceCheck(BaseCheck):
 
     def _runCheck(self):
         failState = False
+        aux = []
+        count = 0
         for name in self.checks:
+            aux.append((self.checks[name].priority, count, name))
+            count += 1
+        aux.sort()
+        sortedChecks = [n[2] for n in aux]
+
+        for name in sortedChecks:
             c = self.checks[name]
             cFail = c.update()
             cMsg = 'PASS'

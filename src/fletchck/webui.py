@@ -183,6 +183,7 @@ class CheckHandler(BaseHandler):
             check = util.check.loadCheck(name='',
                                          config={'type': 'ssh'},
                                          timezone=self._site.timezone)
+            check.priority = len(self._site.checks)
         status = self._site.getStatus()
         self.render("check.html",
                     status=status,
@@ -215,6 +216,13 @@ class CheckHandler(BaseHandler):
         temp = self.get_argument('threshold', '')
         if temp:
             newConf['threshold'] = int(temp)
+        temp = self.get_argument('priority', '')
+        if temp:
+            newConf['priority'] = int(temp)
+        else:
+            if not path:
+                # give new checks a reasonable default ordering
+                newConf['priority'] = len(self._site.checks)
         newConf['passAction'] = bool(self.get_argument('passAction', None))
         newConf['failAction'] = bool(self.get_argument('failAction', None))
         newConf['options'] = {}

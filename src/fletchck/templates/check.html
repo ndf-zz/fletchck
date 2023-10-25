@@ -40,9 +40,13 @@
   <input type="text" class="form-control" name="trigger" id="trigger" placeholder="trigger" value="{{ site.getTrigger(check) }}">
   <label for="trigger" class="form-label">Trigger</label>
  </div>
- <div class="mb-3 form-floating">
+ <div class="form-floating">
   <input type="number" class="form-control" name="threshold" id="threshold" placeholder="1" value="{{ check.threshold }}">
   <label for="threshold" class="form-label">Fail threshold</label>
+ </div>
+ <div class="mb-3 form-floating">
+  <input type="number" class="form-control" name="priority" id="priority" placeholder="1" value="{{ check.priority }}">
+  <label for="priority" class="form-label">Priority/Ordering</label>
  </div>
  <div class="form-check mb-3">
   <input class="form-check-input" type="checkbox" value="1" name="passAction" id="passAction" {{ 'checked' if check.passAction else '' }}>
@@ -87,7 +91,7 @@
  </div>
  <div class="mb-3">
   <label for="checks" class="form-label">Check sequence (sequence checks)</label>
-  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="checks" name="checks">{% for depend in site.checks %}{% if depend != check.name %}
+  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="checks" name="checks">{% for depend in site.sortedChecks() %}{% if depend != check.name %}
    <option value="{{ depend }}" {{ 'selected' if 'checks' in check.options and depend in check.options['checks'] else '' }}>{{ depend }}</option>{% end %}{% end %}
    <option value="">[not set]</option>
   </select>
@@ -110,7 +114,7 @@
  </div>
  <div class="mb-3">
   <label for="depends" class="form-label">Depends</label>
-  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="depends" name="depends">{% for depend in site.checks %}{% if depend != check.name %}
+  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="depends" name="depends">{% for depend in site.sortedChecks() %}{% if depend != check.name %}
    <option value="{{ depend }}" {{ 'selected' if depend in check.depends else '' }}>{{ depend }}</option>{% end %}{% end %}
    <option value="">[not set]</option>
   </select>

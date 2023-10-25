@@ -73,6 +73,16 @@ class FletchSite():
         """Add the named action to site"""
         util.addAction(self, name, config)
 
+    def sortedChecks(self):
+        """Return the list of check names in priority order"""
+        aux = []
+        count = 0
+        for name in self.checks:
+            aux.append((self.checks[name].priority, count, name))
+            count += 1
+        aux.sort()
+        return [n[2] for n in aux]
+
     def addCheck(self, name, config):
         """Add the named check to site"""
         util.addCheck(self, name, config)
@@ -119,7 +129,7 @@ class FletchSite():
     def getStatus(self):
         status = {'fail': False, 'info': None, 'checks': {}}
         failCount = 0
-        for checkName in self.checks:
+        for checkName in self.sortedChecks():
             check = self.checks[checkName]
             if check.failState:
                 failCount += 1
