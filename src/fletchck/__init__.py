@@ -59,7 +59,7 @@ class FletchSite():
         fakeCheck.checkType = 'action-test'
         fakeCheck.failState = False
         fakeCheck.timezone = self.timezone
-        fakeCheck.lastPass = util.check.timestamp(self.timezone)
+        fakeCheck.lastPass = util.check.timeString(self.timezone)
         fakeCheck.log = ['Testing action notification to:', 'email', 'sms']
         emailOK = False
         if 'email' in self.actions:
