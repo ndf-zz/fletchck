@@ -75,10 +75,10 @@ class sendEmail(BaseAction):
         subject = "[%s] %s (%s) in %s state" % (
             site, source.name, source.checkType, source.getState())
         ml = []
-        ml.append(
-            '%s (%s) in %s state at %s%s' %
-            (source.name, source.checkType, source.getState(), source.lastPass,
-             '\n\U0001F4A9\U0001F44D' if not source.failState else ''))
+        ml.append('%s (%s) in %s state at %s%s' %
+                  (source.name, source.checkType, source.getState(),
+                   source.lastFail if source.failState else source.lastPass,
+                   '' if source.failState else '\n\U0001F4A9\U0001F44D'))
         if source.log:
             ml.append('')
             ml.append('Log:')
