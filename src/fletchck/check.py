@@ -167,6 +167,8 @@ class BaseCheck():
             self.failCount += 1
             if self.failCount >= self.threshold:
                 if not self.failState:
+                    _log.warning('%s (%s) Log: %r', self.name, self.checkType,
+                                 self.log)
                     _log.warning('%s (%s) FAIL', self.name, self.checkType)
                     self.failState = True
                     self.lastFail = thisTime
