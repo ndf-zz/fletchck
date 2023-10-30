@@ -15,7 +15,7 @@ import socket
 
 _log = getLogger('fletchck.check')
 _log.setLevel(INFO)
-getLogger('paramiko.transport').setLevel(WARNING)
+getLogger('paramiko.transport').setLevel(INFO)
 
 CHECK_TYPES = {}
 
@@ -159,9 +159,9 @@ class BaseCheck():
 
         self.log = []
         curFail = self._runCheck()
-        _log.debug('%s (%s): curFail=%r prevFail=%r failCount=%r %s',
-                   self.name, self.checkType, curFail, self.failState,
-                   self.failCount, thisTime)
+        _log.info('%s (%s): %s curFail=%r prevFail=%r failCount=%r %s',
+                  self.name, self.checkType, self.getState(), curFail,
+                  self.failState, self.failCount, thisTime)
 
         if curFail:
             self.failCount += 1

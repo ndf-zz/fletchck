@@ -20,8 +20,8 @@ from apscheduler.triggers.cron import CronTrigger
 
 _log = getLogger('fletchck.util')
 _log.setLevel(INFO)
-getLogger('apscheduler.executors').setLevel(WARNING)
-getLogger('apscheduler.executors.default').setLevel(WARNING)
+getLogger('apscheduler.executors').setLevel(INFO)
+getLogger('apscheduler.executors.default').setLevel(INFO)
 
 _INTTRIGKEYS = {'weeks', 'days', 'hours', 'minutes', 'seconds', 'jitter'}
 _INTERVALKEYS = {
