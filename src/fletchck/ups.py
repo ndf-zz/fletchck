@@ -6,7 +6,7 @@ from logging import getLogger, DEBUG, INFO, WARNING
 from time import sleep
 
 _log = getLogger('fletchck.ups')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 
 # Constants
 _ENCODING = 'ascii'

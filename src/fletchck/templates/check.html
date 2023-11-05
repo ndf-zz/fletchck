@@ -30,7 +30,7 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" placeholder="ssh" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'sequence'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" placeholder="ssh" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'ups', 'upstest', 'sequence'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -64,6 +64,10 @@
  <div class="form-floating">
   <input type="number" class="form-control" name="port" id="port" placeholder="12345" value="{{ check.options['port'] if 'port' in check.options else '' }}">
   <label for="port" class="form-label">Port</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="serialPort" id="serialPort" placeholder="serialPort" value="{{ check.options['serialPort'] if 'serialPort' in check.options else '' }}">
+  <label for="serialPort" class="form-label">Serial Port (ups checks)</label>
  </div>
  <div class="form-floating">
   <input type="number" class="form-control" name="timeout" id="timeout" placeholder="10" value="{{ check.options['timeout'] if 'timeout' in check.options else '' }}">
@@ -103,6 +107,10 @@
  <div class="form-check mb-3">
   <input class="form-check-input" type="checkbox" value="1" name="tls" id="tls" {{ '' if 'tls' in check.options and not check.options['tls'] else 'checked' }}>
   <label class="form-check-label" for="tls">Use TLS (smtp checks)</label>
+ </div>
+ <div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" value="1" name="beeper" id="beeper" {{ '' if 'beeper' in check.options and not check.options['beeper'] else 'checked' }}>
+  <label class="form-check-label" for="beeper">Enable UPS Beeper (ups checks)</label>
  </div>
 
  <div class="mb-3">

@@ -172,7 +172,7 @@ class CheckHandler(BaseHandler):
                     self.redirect('/')
                     return
                 elif self.get_argument('run', ''):
-                    _log.info('Manually running %s', path)
+                    _log.warning('Manually running %s', path)
                     await tornado.ioloop.IOLoop.current().run_in_executor(
                         None, self._site.runCheck, path)
                     self.redirect('/check/' + self._site.pathQuote(path))
@@ -227,7 +227,7 @@ class CheckHandler(BaseHandler):
         newConf['failAction'] = bool(self.get_argument('failAction', None))
         newConf['options'] = {}
         # string options
-        for key in ['hostname', 'probe', 'reqType', 'reqPath', 'hostkey']:
+        for key in ['hostname', 'serialPort', 'probe', 'reqType', 'reqPath', 'hostkey']:
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = temp
@@ -243,10 +243,13 @@ class CheckHandler(BaseHandler):
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = int(temp)
-        # tls is default on
+        # tls & beeper default on
         temp = self.get_argument('tls', None)
         if not temp:
             newConf['options']['tls'] = False
+        temp = self.get_argument('beeper', None)
+        if not temp:
+            newConf['options']['beeper'] = False
         # selfsigned is default off
         temp = self.get_argument('selfsigned', None)
         if temp:
