@@ -9,7 +9,9 @@ from smtplib import SMTP, SMTP_SSL
 from imaplib import IMAP4_SSL, IMAP4_SSL_PORT
 from http.client import HTTPSConnection
 from paramiko.transport import Transport as SSH
+from threading import Lock
 from cryptography import x509
+from .ups import UpsQsV
 import ssl
 import socket
 
@@ -18,6 +20,9 @@ _log.setLevel(INFO)
 getLogger('paramiko.transport').setLevel(INFO)
 
 CHECK_TYPES = {}
+
+# Serial port locks
+_serialLock = {'': Lock()}
 
 
 def timeString(timezone=None):
@@ -470,6 +475,72 @@ class sshCheck(BaseCheck):
         return failState
 
 
+class upsStatus(BaseCheck):
+    """UPS basic check"""
+
+    def _runCheck(self):
+        serialPort = self.getStrOpt('serialPort', '')
+        if serialPort:
+            if serialPort not in _serialLock:
+                with _serialLock['']:
+                    _serialLock[serialPort] = Lock()
+        beeper = self.getBoolOpt('beeper', True)
+
+        failState = True
+        try:
+            _log.debug('Waiting for serialport')
+            with _serialLock[serialPort]:
+                u = UpsQsV(serialPort)
+                u.setBeeper(beeper)
+                self.log.append('Load: %d%%, Battery: %0.1fV' %
+                                (u.load, u.battery))
+                self.log.append(u.getInfo(update=False))
+                if u.lowBattery:
+                    self.log.append('Low battery warning: %0.1fV' %
+                                    (u.battery))
+                failState = (u.error or u.fail or u.fault or u.lowBattery
+                             or u.shutdown)
+        except Exception as e:
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
+                       serialPort, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' %
+                            (serialPort, e.__class__.__name__, e))
+
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType,
+                   serialPort, failState)
+        return failState
+
+
+class upsTest(BaseCheck):
+    """Run a UPS self-test and check result"""
+
+    def _runCheck(self):
+        serialPort = self.getStrOpt('serialPort', '')
+        if serialPort:
+            if serialPort not in _serialLock:
+                with _serialLock['']:
+                    _serialLock[serialPort] = Lock()
+
+        failState = True
+        try:
+            _log.debug('Waiting for serialport')
+            with _serialLock[serialPort]:
+                u = UpsQsV(serialPort)
+                failState, msg = u.runTest()
+                self.log.append(msg)
+                _log.info('%s (%s) %s: %s', self.name, self.checkType,
+                          serialPort, msg)
+        except Exception as e:
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
+                       serialPort, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' %
+                            (serialPort, e.__class__.__name__, e))
+
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType,
+                   serialPort, failState)
+        return failState
+
+
 class sequenceCheck(BaseCheck):
     """Perform a sequence of checks in turn"""
 
@@ -529,3 +600,5 @@ CHECK_TYPES['imap'] = imapCheck
 CHECK_TYPES['https'] = httpsCheck
 CHECK_TYPES['ssh'] = sshCheck
 CHECK_TYPES['sequence'] = sequenceCheck
+CHECK_TYPES['ups'] = upsStatus
+CHECK_TYPES['upstest'] = upsTest
