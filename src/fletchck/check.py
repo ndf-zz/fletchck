@@ -78,7 +78,7 @@ def loadCheck(name, config, timezone=None):
             ret.timezone = getZone(options['timezone'])
         if 'data' in config:
             if 'failState' in config['data']:
-                if isinstance(config['data']['failState'], bool):
+                if isinstance(config['data']['failState'], (bool,str)):
                     ret.failState = config['data']['failState']
             if 'failCount' in config['data']:
                 if isinstance(config['data']['failCount'], int):
@@ -171,11 +171,12 @@ class BaseCheck():
         if curFail:
             self.failCount += 1
             if self.failCount >= self.threshold:
-                if not self.failState:
+                # compare fail state by value
+                if curFail != self.failState:
                     _log.warning('%s (%s) Log: %r', self.name, self.checkType,
                                  self.log)
                     _log.warning('%s (%s) FAIL', self.name, self.checkType)
-                    self.failState = True
+                    self.failState = curFail
                     self.lastFail = thisTime
                     if self.failAction:
                         self.notify()
@@ -184,7 +185,7 @@ class BaseCheck():
             self.log.clear()
             if self.failState:
                 _log.warning('%s (%s) PASS', self.name, self.checkType)
-                self.failState = False
+                self.failState = curFail
                 self.lastPass = thisTime
                 if self.passAction:
                     self.notify()
@@ -567,7 +568,7 @@ class sequenceCheck(BaseCheck):
             self.add_check(check)
 
     def _runCheck(self):
-        failState = False
+        failChecks = set()
         aux = []
         count = 0
         for name in self.checks:
@@ -581,16 +582,16 @@ class sequenceCheck(BaseCheck):
             cFail = c.update()
             cMsg = 'PASS'
             if cFail:
+                failChecks.add(c.name)
                 cMsg = 'FAIL'
                 self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
-                failState = True
                 self.log.extend(c.log)
                 self.log.append('')
             else:
                 self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
 
-        _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failState)
-        return failState
+        _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failChecks)
+        return ','.join(failChecks)
 
 
 CHECK_TYPES['cert'] = certCheck
