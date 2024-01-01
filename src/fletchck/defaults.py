@@ -2,7 +2,7 @@
 """Site defaults"""
 
 # Version String
-VERSION = '1.0.3'
+VERSION = '1.0.4'
 
 # Default application vanity label
 APPNAME = 'Fletchck'
@@ -79,19 +79,21 @@ ACTIONTRIES = 3
 
 # Hide options for named check types
 HIDEOPTIONS = {
-    'cert': {
-        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'tls', 'beeper'
-    },
+    'cert':
+    {'serialPort', 'hostkey', 'reqType', 'reqPath', 'checks', 'tls', 'beeper'},
     'submit': {
+        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'beeper', 'tls'
+    },
+    'smtp': {
         'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
         'beeper'
     },
     'imap': {
         'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'beeper'
+        'beeper', 'tls'
     },
-    'https': {'serialPort', 'hostkey', 'checks', 'beeper'},
+    'https': {'serialPort', 'probe', 'hostkey', 'checks', 'beeper', 'tls'},
     'ssh': {
         'serialPort', 'probe', 'reqType', 'reqPath', 'checks', 'selfsigned',
         'tls', 'beeper'
@@ -102,11 +104,11 @@ HIDEOPTIONS = {
     },
     'ups': {
         'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls'
+        'selfsigned', 'tls', 'timeout'
     },
     'upstest': {
         'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls'
+        'selfsigned', 'tls', 'timeout'
     }
 }
 
