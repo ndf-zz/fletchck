@@ -78,7 +78,7 @@ def loadCheck(name, config, timezone=None):
             ret.timezone = getZone(options['timezone'])
         if 'data' in config:
             if 'failState' in config['data']:
-                if isinstance(config['data']['failState'], (bool,str)):
+                if isinstance(config['data']['failState'], (bool, str)):
                     ret.failState = config['data']['failState']
             if 'failCount' in config['data']:
                 if isinstance(config['data']['failCount'], int):

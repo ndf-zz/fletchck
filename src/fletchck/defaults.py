@@ -77,6 +77,39 @@ SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
 # Try action trigger this many times before giving up
 ACTIONTRIES = 3
 
+# Hide options for named check types
+HIDEOPTIONS = {
+    'cert': {
+        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'tls', 'beeper'
+    },
+    'submit': {
+        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'beeper'
+    },
+    'imap': {
+        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'beeper'
+    },
+    'https': {'serialPort', 'hostkey', 'checks', 'beeper'},
+    'ssh': {
+        'serialPort', 'probe', 'reqType', 'reqPath', 'checks', 'selfsigned',
+        'tls', 'beeper'
+    },
+    'sequence': {
+        'hostname', 'port', 'serialPort', 'timeout', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'selfsigned', 'tls', 'beeper'
+    },
+    'ups': {
+        'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'selfsigned', 'tls'
+    },
+    'upstest': {
+        'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'selfsigned', 'tls'
+    }
+}
+
 
 def getOpt(key, store, valType, default=None):
     """Return value of valType from store or default"""

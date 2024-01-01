@@ -57,76 +57,78 @@
   <label class="form-check-label" for="failAction">Notify on change to fail</label>
  </div>
 
- <div class="form-floating">
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostname') }}">
   <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ check.options['hostname'] if 'hostname' in check.options else '' }}">
   <label for="hostname" class="form-label">Hostname</label>
  </div>
- <div class="form-floating">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'port') }}">
   <input type="number" class="form-control" name="port" id="port" placeholder="12345" value="{{ check.options['port'] if 'port' in check.options else '' }}">
   <label for="port" class="form-label">Port</label>
  </div>
- <div class="form-floating">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'serialPort') }}">
   <input type="text" class="form-control" name="serialPort" id="serialPort" placeholder="serialPort" value="{{ check.options['serialPort'] if 'serialPort' in check.options else '' }}">
   <label for="serialPort" class="form-label">Serial Port (ups checks)</label>
  </div>
- <div class="form-floating">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'timeout') }}">
   <input type="number" class="form-control" name="timeout" id="timeout" placeholder="10" value="{{ check.options['timeout'] if 'timeout' in check.options else '' }}">
   <label for="timeout" class="form-label">Socket timeout (seconds)</label>
  </div>
- <div class="form-floating">
-  <input type="text" class="form-control" name="timezone" id="timezone" placeholder="timezone" value="{{ check.options['timezone'] if 'timezone' in check.options else '' }}">
-  <label for="timezone" class="form-label">Service timezone</label>
- </div>
- <div class="form-floating">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostkey') }}">
   <input type="text" class="form-control" name="hostkey" id="hostkey" placeholder="Base64 Hostkey" value="{{ check.options['hostkey'] if 'hostkey' in check.options else '' }}">
   <label for="hostkey" class="form-label">Server public key (ssh checks)</label>
  </div>
- <div class="form-floating">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'probe') }}">
   <input type="text" class="form-control" name="probe" id="probe" placeholder="probe" value="{{ check.options['probe'] if 'probe' in check.options else '' }}">
   <label for="probe" class="form-label">Probe text (cert checks)</label>
  </div>
- <div class="form-floating">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqType') }}">
   <input type="text" class="form-control" name="reqType" id="reqType" placeholder="request type" value="{{ check.options['reqType'] if 'reqType' in check.options else '' }}">
   <label for="reqType" class="form-label">Request method (https checks)</label>
  </div>
- <div class="form-floating mb-3">
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqPath') }}">
   <input type="text" class="form-control" name="reqPath" id="reqPath" placeholder="request path" value="{{ check.options['reqPath'] if 'reqPath' in check.options else '' }}">
   <label for="reqPath" class="form-label">Request path (https checks)</label>
  </div>
- <div class="mb-3">
-  <label for="checks" class="form-label">Check sequence (sequence checks)</label>
-  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="checks" name="checks">{% for depend in site.sortedChecks() %}{% if depend != check.name %}
-   <option value="{{ depend }}" {{ 'selected' if 'checks' in check.options and depend in check.options['checks'] else '' }}>{{ depend }}</option>{% end %}{% end %}
-   <option value="">[not set]</option>
-  </select>
+
+ <div class="form-floating mb-3">
+  <input type="text" class="form-control" name="timezone" id="timezone" placeholder="timezone" value="{{ check.options['timezone'] if 'timezone' in check.options else '' }}">
+  <label for="timezone" class="form-label">Service timezone</label>
  </div>
- <div class="form-check mb-3">
+
+ <div class="mb-3{{ site.hideOption(oldName, check.checkType, 'checks') }}">
+  <p class="form-label">Include in Sequence:</p>
+  {% for depend in site.sortedChecks() %} <input type="checkbox" class="btn-check" autocomplete="off" {{ 'checked' if 'checks' in check.options and depend in check.options['checks'] else '' }} id="{{ id(depend) }}" name="checks" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="{{ id(depend) }}">{{ depend }}</label>{% end %}
+ </div>
+ <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
   <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
   <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
  </div>
- <div class="form-check mb-3">
+ <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'tls') }}">
   <input class="form-check-input" type="checkbox" value="1" name="tls" id="tls" {{ '' if 'tls' in check.options and not check.options['tls'] else 'checked' }}>
   <label class="form-check-label" for="tls">Use TLS (smtp checks)</label>
  </div>
- <div class="form-check mb-3">
+ <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'beeper') }}">
   <input class="form-check-input" type="checkbox" value="1" name="beeper" id="beeper" {{ '' if 'beeper' in check.options and not check.options['beeper'] else 'checked' }}>
   <label class="form-check-label" for="beeper">Enable UPS Beeper (ups checks)</label>
  </div>
 
  <div class="mb-3">
-  <label for="actions" class="form-label">Actions</label>
-  <select class="form-select" multiple size="{{ max(len(site.actions),1) }}" id="actions" name="actions">{% for action in site.actions %}
-   <option value="{{ action }}" {{ 'selected' if action in check.actions else '' }}>{{ action }}</option>{% end %}
-   <option value="">[not set]</option>
-  </select>
+  <p class="form-label">Actions:</p>
+  {% for action in site.actions %} <input type="checkbox" class="btn-check" autocomplete="off" {{ 'checked' if action in check.actions else '' }} id="{{ id(action) }}" name="actions" value="{{ action }}"><label class="btn btn-outline-secondary mb-1" for="{{ id(action) }}">{{ action }}</label>{% end %}
  </div>
+
  <div class="mb-3">
-  <label for="depends" class="form-label">Depends</label>
-  <select class="form-select" multiple size="{{ max(len(site.checks),1) }}" id="depends" name="depends">{% for depend in site.sortedChecks() %}{% if depend != check.name %}
-   <option value="{{ depend }}" {{ 'selected' if depend in check.depends else '' }}>{{ depend }}</option>{% end %}{% end %}
-   <option value="">[not set]</option>
-  </select>
+  <p class="form-label">Depends on:</p>
+  {% for depend in site.sortedChecks() %} <input type="checkbox" class="btn-check" autocomplete="off" {{ 'checked' if depend in check.depends else '' }} id="{{ id(depend) }}" name="depends" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="{{ id(depend) }}">{{ depend }}</label>{% end %}
  </div>
+
  <button class="btn btn-primary py-2 mb-3" type="submit">
  {{ 'Update' if check and check.name else 'Create Check' }}
  </button> 

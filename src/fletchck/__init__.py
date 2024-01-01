@@ -73,6 +73,14 @@ class FletchSite():
         """Add the named action to site"""
         util.addAction(self, name, config)
 
+    def hideOption(self, path, check, option):
+        """Return a visually-hidden class for options not in check type"""
+        ret = ''
+        if path and check in defaults.HIDEOPTIONS:
+            if option in defaults.HIDEOPTIONS[check]:
+                ret = ' visually-hidden'
+        return ret
+
     def sortedChecks(self):
         """Return the list of check names in priority order"""
         aux = []

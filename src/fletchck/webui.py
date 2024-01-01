@@ -227,7 +227,10 @@ class CheckHandler(BaseHandler):
         newConf['failAction'] = bool(self.get_argument('failAction', None))
         newConf['options'] = {}
         # string options
-        for key in ['hostname', 'serialPort', 'probe', 'reqType', 'reqPath', 'hostkey']:
+        for key in [
+                'hostname', 'serialPort', 'probe', 'reqType', 'reqPath',
+                'hostkey'
+        ]:
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = temp
