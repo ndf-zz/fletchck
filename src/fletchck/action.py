@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from smtplib import SMTP_SSL
 from email.mime.text import MIMEText
 from email.utils import make_msgid, formatdate
+from subprocess import run
 
 import ssl
 
@@ -91,31 +92,60 @@ class sendEmail(BaseAction):
         sender = self.getStrOpt('sender')
         recipients = self.getListOpt('recipients', [])
         hostname = self.getStrOpt('hostname')
+        fallback = self.getStrOpt('fallback')
         port = self.getIntOpt('port', 0)
         timeout = self.getIntOpt('timeout', defaults.SUBMITTIMEOUT)
 
         _log.debug('Send email to %r via %r : %r', recipients, hostname,
                    subject)
+
         ret = True
-        if hostname and username and recipients and sender:
+        if not recipients:
+            _log.info('No email recipients specified - notify ignored')
+            return ret
+
+        msgid = make_msgid()
+        m = MIMEText(message)
+        if sender:
+            m['From'] = sender
+        m['Subject'] = subject
+        m['Message-ID'] = msgid
+        m['Date'] = formatdate(localtime=True)
+
+        if hostname:
             ret = False
             try:
-                msgid = make_msgid()
-                m = MIMEText(message)
-                m['From'] = sender
-                m['Subject'] = subject
-                m['Message-ID'] = msgid
-                m['Date'] = formatdate(localtime=True)
                 ctx = ssl.create_default_context()
                 with SMTP_SSL(host=hostname,
                               port=port,
                               timeout=timeout,
                               context=ctx) as s:
-                    s.login(username, password)
+                    if username and password:
+                        s.login(username, password)
                     s.send_message(m, from_addr=sender, to_addrs=recipients)
                 ret = True
             except Exception as e:
-                _log.warning('Email Notify failed: %s', e)
+                _log.warning('SMTP Email Notify failed: %s', e)
+        elif fallback:
+            ret = False
+            try:
+                cmd = [fallback, '-oi']
+                if sender:
+                    cmd.extend(['-r', sender])
+                cmd.append('--')
+                cmd.extend(recipients)
+                _log.info('cmd: %r', cmd)
+                run(cmd,
+                    capture_output=True,
+                    input=m.as_bytes(),
+                    timeout=timeout,
+                    check=True)
+                _log.debug('Fallback email sent ok to: %r', recipients)
+                ret = True
+            except Exception as e:
+                _log.warning('Fallback Email Notify failed: %s', e)
+        else:
+            _log.warning('Email notify not configured')
         return ret
 
 

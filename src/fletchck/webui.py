@@ -387,6 +387,11 @@ class ActionsHandler(BaseHandler):
             if nv:
                 smsOptions[key] = nv
 
+        # fallback is email only
+        nv = self.get_argument('email.fallback', '')
+        if nv:
+            emailOptions['fallback'] = nv
+
         # int options
         for key in ['port', 'timeout']:
             nv = self.get_argument('email.' + key, '')

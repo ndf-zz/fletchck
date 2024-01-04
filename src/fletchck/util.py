@@ -301,6 +301,11 @@ def initSite(path, webUi=True):
 
     # Add the basic actions and an empty set of checks
     siteCfg['actions'] = {'email': {'type': 'email'}, 'sms': {'type': 'sms'}}
+    fallback = None
+    if os.path.exists(defaults.SENDMAIL):
+        fallback = defaults.SENDMAIL
+        siteCfg['actions']['email']['options'] = {'fallback': fallback}
+        print('Configured fallback mailer: %r' % (fallback))
     siteCfg['checks'] = {}
 
     # saveconfig

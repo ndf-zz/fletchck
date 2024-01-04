@@ -17,6 +17,10 @@
   <label for="email.recipients" class="form-label">Recipients (space separated)</label>
  </div>
  <div class="form-floating">
+  <input type="email" class="form-control" name="email.sender" id="email.sender" placeholder="sender" value="{{ site.actions['email'].options['sender'] if 'sender' in site.actions['email'].options else '' }}">
+  <label for="email.sender" class="form-label">Sender</label>
+ </div>
+ <div class="form-floating">
   <input type="text" class="form-control" name="email.hostname" id="email.hostname" placeholder="hostname" value="{{ site.actions['email'].options['hostname'] if 'hostname' in site.actions['email'].options else '' }}">
   <label for="email.hostname" class="form-label">MSA Hostname</label>
  </div>
@@ -29,16 +33,16 @@
   <label for="email.password" class="form-label">Password</label>
  </div>
  <div class="form-floating">
-  <input type="email" class="form-control" name="email.sender" id="email.sender" placeholder="sender" value="{{ site.actions['email'].options['sender'] if 'sender' in site.actions['email'].options else '' }}">
-  <label for="email.sender" class="form-label">Sender</label>
- </div>
- <div class="form-floating">
   <input type="text" class="form-control" name="email.site" id="email.site" placeholder="site" value="{{ site.actions['email'].options['site'] if 'site' in site.actions['email'].options else '' }}">
   <label for="email.site" class="form-label">Site Name</label>
  </div>
  <div class="form-floating">
   <input type="number" class="form-control" name="email.port" id="email.port" placeholder="12345" value="{{ site.actions['email'].options['port'] if 'port' in site.actions['email'].options else '' }}">
   <label for="email.port" class="form-label">Port</label>
+ </div>
+ <div class="form-floating">
+  <input type="text" class="form-control" name="email.fallback" id="email.fallback" placeholder="fallback" value="{{ site.actions['email'].options['fallback'] if 'fallback' in site.actions['email'].options else '' }}">
+  <label for="email.fallback" class="form-label">Fallback Mailer</label>
  </div>
  <div class="form-floating mb-3">
   <input type="number" class="form-control" name="email.timeout" id="email.timeout" placeholder="12" value="{{ site.actions['email'].options['timeout'] if 'timeout' in site.actions['email'].options else '' }}">

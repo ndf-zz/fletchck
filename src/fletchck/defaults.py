@@ -77,6 +77,9 @@ SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
 # Try action trigger this many times before giving up
 ACTIONTRIES = 3
 
+# Path to fallback sendmail
+SENDMAIL = '/usr/lib/sendmail'
+
 # Hide options for named check types
 HIDEOPTIONS = {
     'cert':
