@@ -369,10 +369,9 @@ class certCheck(BaseCheck):
             if not selfsigned:
                 # do full TLS negotiation
                 ctx = ssl.create_default_context()
-                conn = ctx.wrap_socket(socket.socket(socket.AF_INET),
-                                       server_hostname=hostname)
-                conn.settimeout(timeout)
-                conn.connect((hostname, port))
+                sock = socket.create_connection((hostname, port),
+                                                timeout=timeout)
+                conn = ctx.wrap_socket(sock, server_hostname=hostname)
                 certExpiry(conn.getpeercert())
                 if probe is not None:
                     self.log.append(
@@ -454,9 +453,8 @@ class sshCheck(BaseCheck):
 
         failState = True
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(timeout)
-                s.connect((hostname, port))
+            with socket.create_connection((hostname, port),
+                                          timeout=timeout) as s:
                 t = SSH(s)
                 t.start_client(timeout=timeout)
                 hk = t.get_remote_server_key().get_base64()
