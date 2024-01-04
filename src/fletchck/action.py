@@ -134,7 +134,6 @@ class sendEmail(BaseAction):
                     cmd.extend(['-r', sender])
                 cmd.append('--')
                 cmd.extend(recipients)
-                _log.info('cmd: %r', cmd)
                 run(cmd,
                     capture_output=True,
                     input=m.as_bytes(),

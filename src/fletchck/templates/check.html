@@ -1,7 +1,7 @@
 {% extends "dash.html" %}
 {% block main %}
  {% if check and oldName %}
-  <h2 class="my-3">{{ oldName }} ({{ check.checkType }})</h1>
+  <h2 class="my-3">{{ oldName }} ({{ check.checkType }})</h2>
   <ul>
    <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
    <li>Last Fail: {{ check.lastFail }}</li>
@@ -30,7 +30,7 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" placeholder="ssh" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'ups', 'upstest', 'sequence'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'ups', 'upstest', 'sequence'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -104,7 +104,7 @@
 
  <div class="mb-3{{ site.hideOption(oldName, check.checkType, 'checks') }}">
   <p class="form-label">Include in Sequence:</p>
-  {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" autocomplete="off" {{ 'checked' if 'checks' in check.options and depend in check.options['checks'] else '' }} id="{{ id(depend) }}" name="checks" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
+  {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if 'checks' in check.options and depend in check.options['checks'] else '' }} id="seq-{{ id(depend) }}" name="checks" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="seq-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
  </div>
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
   <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
@@ -121,12 +121,12 @@
 
  <div class="mb-3">
   <p class="form-label">Actions:</p>
-  {% for action in site.actions %} <input type="checkbox" class="btn-check" autocomplete="off" {{ 'checked' if action in check.actions else '' }} id="{{ id(action) }}" name="actions" value="{{ action }}"><label class="btn btn-outline-secondary mb-1" for="{{ id(action) }}">{{ action }}</label>{% end %}
+  {% for action in site.actions %} <input type="checkbox" class="btn-check" {{ 'checked' if action in check.actions else '' }} id="act-{{ id(action) }}" name="actions" value="{{ action }}"><label class="btn btn-outline-secondary mb-1" for="act-{{ id(action) }}">{{ action }}</label>{% end %}
  </div>
 
  <div class="mb-3">
   <p class="form-label">Depends on:</p>
-  {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" autocomplete="off" {{ 'checked' if depend in check.depends else '' }} id="{{ id(depend) }}" name="depends" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
+  {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if depend in check.depends else '' }} id="dep-{{ id(depend) }}" name="depends" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="dep-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
  </div>
 
  <button class="btn btn-primary py-2 mb-3" type="submit">
