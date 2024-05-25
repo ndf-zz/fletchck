@@ -225,6 +225,11 @@ class CheckHandler(BaseHandler):
                 newConf['priority'] = len(self._site.checks)
         newConf['passAction'] = bool(self.get_argument('passAction', None))
         newConf['failAction'] = bool(self.get_argument('failAction', None))
+        ptopic = self.get_argument('publish', None)
+        if ptopic:
+            newConf['publish'] = ptopic
+        else:
+            newConf['publish'] = None
         newConf['options'] = {}
         # string options
         for key in [

@@ -74,6 +74,8 @@ def loadCheck(name, config, timezone=None):
             ret.failAction = config['failAction']
         if 'passAction' in config and isinstance(config['passAction'], bool):
             ret.passAction = config['passAction']
+        if 'publish' in config and isinstance(config['publish'], str):
+            ret.publish = config['publish']
         if 'timezone' in options and isinstance(options['timezone'], str):
             ret.timezone = getZone(options['timezone'])
         if 'data' in config:
@@ -115,6 +117,7 @@ class BaseCheck():
         self.name = name
         self.failAction = True
         self.passAction = True
+        self.publish = None
         self.threshold = 1
         self.priority = 0
         self.options = options
@@ -132,6 +135,7 @@ class BaseCheck():
         self.lastFail = None
         self.lastPass = None
         self.lastCheck = None
+        self.lastUpdate = None
 
     def _runCheck(self):
         """Perform the required check and return fail state"""
@@ -235,6 +239,22 @@ class BaseCheck():
     def getIntOpt(self, key, default=None):
         return defaults.getOpt(key, self.options, int, default)
 
+    def msgObj(self):
+        """Return a remote notification object for this check"""
+        return {
+            'name': self.name,
+            'type': self.checkType,
+            'data': {
+                'failState': self.failState,
+                'failCount': self.failCount,
+                'log': self.log,
+                'softFail': self.softFail,
+                'lastCheck': self.lastCheck,
+                'lastFail': self.lastFail,
+                'lastPass': self.lastPass
+            }
+        }
+
     def flatten(self):
         """Return the check as a flattened dictionary"""
         actList = [a for a in self.actions]
@@ -246,6 +266,7 @@ class BaseCheck():
             'priority': self.priority,
             'failAction': self.failAction,
             'passAction': self.passAction,
+            'publish': self.publish,
             'options': self.options,
             'actions': actList,
             'depends': depList,
@@ -281,9 +302,9 @@ class submitCheck(BaseCheck):
                           timeout=timeout,
                           context=ctx) as s:
                 self.log.append(repr(s.ehlo()))
+                failState = False
                 self.log.append(repr(s.noop()))
                 self.log.append(repr(s.quit()))
-                failState = False
         except Exception as e:
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
@@ -315,9 +336,9 @@ class smtpCheck(BaseCheck):
                     self.log.append(repr(s.starttls(context=ctx)))
                     certExpiry(s.sock.getpeercert())
                 self.log.append(repr(s.ehlo()))
+                failState = False
                 self.log.append(repr(s.noop()))
                 self.log.append(repr(s.quit()))
-                failState = False
         except Exception as e:
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
@@ -551,6 +572,29 @@ class upsTest(BaseCheck):
         return failState
 
 
+class remoteCheck(BaseCheck):
+    """A check that receives state from a remote fletch over MQTT"""
+
+    def _runCheck(self):
+        thisTime = datetime.now().astimezone(self.timezone)
+        timeout = self.getIntOpt('timeout', None)
+        failState = self.failState
+        et = 0
+        if timeout and self.lastUpdate:
+            et = thisTime - self.lastUpdate
+            if et > timeout:
+                _log.warning('%s: Timeout waiting for update %d sec/ %s', et,
+                             self.lastUpdate.strftime("%d %b %Y %H:%M %Z"))
+                failState = True
+        return self.failState
+
+    def remoteUpdate(self, data):
+        # ... handle remote update notification
+        self.lastUpdate = datetime.now().astimezone(self.timezone)
+        _log.warning('Update internal state from data')
+        # TODO: update internal state from remote data and trigger actions
+
+
 class sequenceCheck(BaseCheck):
     """Perform a sequence of checks in turn"""
 
@@ -629,3 +673,4 @@ CHECK_TYPES['ssh'] = sshCheck
 CHECK_TYPES['sequence'] = sequenceCheck
 CHECK_TYPES['ups'] = upsStatus
 CHECK_TYPES['upstest'] = upsTest
+CHECK_TYPES['remote'] = remoteCheck

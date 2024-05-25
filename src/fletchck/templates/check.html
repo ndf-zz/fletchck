@@ -57,6 +57,11 @@
   <label class="form-check-label" for="failAction">Notify on change to fail</label>
  </div>
 
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'publish') }}">
+  <input type="text" class="form-control" name="publish" id="publish" placeholder="Topic" value="{{ check.publish if check.publish else '' }}">
+  <label for="publish" class="form-label">MQTT publish topic</label>
+ </div>
+
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostname') }}">
   <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ check.options['hostname'] if 'hostname' in check.options else '' }}">
   <label for="hostname" class="form-label">Hostname</label>

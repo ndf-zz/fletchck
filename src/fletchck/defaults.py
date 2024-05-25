@@ -31,6 +31,20 @@ WEBUICONFIG = {
     'users': None,
 }
 
+# MQTT Client Config
+MQTTCONFIG = {
+    'hostname': 'localhost',
+    'port': None,
+    'tls': False,
+    'username': None,
+    'password': None,
+    'clientid': None,
+    'persist': True,
+    'qos': 0,
+    'basetopic': None,
+    'autoadd': True,
+}
+
 # Format for the volatile log
 LOGFORMAT = '%(asctime)s %(message)s'
 

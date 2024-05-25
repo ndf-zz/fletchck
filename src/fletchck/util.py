@@ -255,6 +255,10 @@ def saveSite(site):
         dstCfg['webui'] = {}
         for k in defaults.WEBUICONFIG:
             dstCfg['webui'][k] = site.webCfg[k]
+    if site.mqttCfg is not None:
+        dstCfg['mqtt'] = {}
+        for k in defaults.MQTTCONFIG:
+            dstCfg['mqtt'][k] = site.mqttCfg[k]
     dstCfg['actions'] = {}
     for a in site.actions:
         dstCfg['actions'][a] = site.actions[a].flatten()
@@ -443,8 +447,9 @@ def addCheck(site, name, config):
                     trigOpts['timezone'] = newCheck.timezone
                 elif site.timezone:
                     trigOpts['timezone'] = site.timezone
-            site.scheduler.add_job(newCheck.update,
-                                   trigType,
+            site.scheduler.add_job(site.runCheck,
+                                   trigger=trigType,
+                                   kwargs={'name': name},
                                    id=name,
                                    **trigOpts)
     _log.warning('Added check %s to site', name)
@@ -498,6 +503,14 @@ def loadSite(site):
                     site.webCfg[k] = srcCfg['webui'][k]
                 else:
                     site.webCfg[k] = defaults.WEBUICONFIG[k]
+
+        if 'mqtt' in srcCfg and isinstance(srcCfg['mqtt'], dict):
+            site.mqttCfg = {}
+            for k in defaults.MQTTCONFIG:
+                if k in srcCfg['mqtt']:
+                    site.mqttCfg[k] = srcCfg['mqtt'][k]
+                else:
+                    site.mqttCfg[k] = defaults.MQTTCONFIG[k]
 
         if 'log' in srcCfg and isinstance(srcCfg['log'], list):
             site.log = srcCfg['log']

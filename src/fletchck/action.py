@@ -90,7 +90,7 @@ class publishMsg(BaseAction):
             if username or password:
                 auth = {'username': username, 'password': password}
             usetls = self.getBoolOpt('usetls', True)
-            msg = json.dumps(source.flatten(), indent=1)
+            msg = json.dumps(source.msgObj())
             _log.debug('Publish msg to %r via %r : %r', topic, hostname, msg)
 
             ret = False

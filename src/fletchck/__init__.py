@@ -9,6 +9,7 @@ from . import defaults
 from urllib.parse import quote as pathQuote
 from logging import getLogger, DEBUG, INFO, WARNING, basicConfig, Formatter
 from signal import SIGTERM
+from . import mclient
 
 basicConfig(level=INFO)
 _log = getLogger('fletchck')
@@ -26,6 +27,7 @@ class FletchSite():
     def __init__(self):
         self._shutdown = None
         self._lock = asyncio.Lock()
+        self._mqtt = None
 
         self.base = '.'
         self.timezone = None
@@ -37,6 +39,7 @@ class FletchSite():
         self.actions = None
         self.checks = None
         self.webCfg = None
+        self.mqttCfg = None
 
     def _sigterm(self):
         """Handle TERM signal"""
@@ -79,9 +82,13 @@ class FletchSite():
     def hideOption(self, path, check, option):
         """Return a visually-hidden class for options not in check type"""
         ret = ''
-        if path and check in defaults.HIDEOPTIONS:
-            if option in defaults.HIDEOPTIONS[check]:
+        if option == 'publish':
+            if not self._mqtt:
                 ret = ' visually-hidden'
+        else:
+            if path and check in defaults.HIDEOPTIONS:
+                if option in defaults.HIDEOPTIONS[check]:
+                    ret = ' visually-hidden'
         return ret
 
     def sortedChecks(self):
@@ -111,6 +118,9 @@ class FletchSite():
         if name in self.checks:
             _log.debug('Running check %s', name)
             self.checks[name].update()
+            if self.checks[name].publish:
+                self.sendMsg(topic=self.checks[name].publish,
+                             obj=self.checks[name].msgObj())
 
     def saveConfig(self):
         """Save site to config"""
@@ -136,6 +146,31 @@ class FletchSite():
 
     def getTrigger(self, check):
         return util.trigger2Text(check.trigger)
+
+    def recvMsg(self, topic=None, message=None):
+        """MQTT Message receive calback"""
+        ob = mclient.fromJson(message)
+        name = defaults.getOpt('name', ob, str, None)
+        checkType = defaults.getOpt('type', ob, str, None)
+        data = defaults.getOpt('data', ob, dict, None)
+        if name and checkType and data:
+            _log.info('Received remote check name=%r, type=%r, data=%r', name,
+                      checkType, data)
+            if name not in self.checks:
+                if self.mqttCfg['autoadd']:
+                    _log.warning('Adding new remote check with name=%r', name)
+                    pass  # TODO: auto-add remote check
+            if name in self.checks and self.checks[name].checkType == 'remote':
+                self.checks[name].remoteUpdate(data)
+            else:
+                _log.info('Ignore unconfigured remote check %r', name)
+        else:
+            _log.info('Ignored malformed MQTT message object')
+
+    def sendMsg(self, topic, obj):
+        """MQTT publish obj to the nominated topic"""
+        if self._mqtt is not None:
+            self._mqtt.publish_json(topic=topic, obj=obj)
 
     def getStatus(self):
         status = {'fail': False, 'info': None, 'checks': {}}
@@ -174,6 +209,15 @@ class FletchSite():
         self._shutdown = asyncio.Event()
         asyncio.get_running_loop().add_signal_handler(SIGTERM, self._sigterm)
 
+        # create mqtt client library handle
+        if self.mqttCfg:
+            _log.debug('Creating mqtt client handler')
+            self._mqtt = mclient.Mclient(self.mqttCfg)
+            self._mqtt.setcb(self.recvMsg)
+            self._mqtt.start()
+            if 'basetopic' in self.mqttCfg and self.mqttCfg['basetopic']:
+                self._mqtt.subscribe(self.mqttCfg['basetopic'])
+
         # create tornado application and listen on configured hostname
         if self.doWebUi and self.webCfg is not None:
             _log.debug('Loading web ui module')
@@ -186,6 +230,9 @@ class FletchSite():
             _log.warning('Starting')
             await self._shutdown.wait()
             self.saveConfig()
+            if self._mqtt:
+                self._mqtt.exit()
+                self._mqtt.wait()
         except Exception as e:
             _log.error('main %s: %s', e.__class__.__name__, e)
 
