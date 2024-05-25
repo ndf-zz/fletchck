@@ -54,20 +54,23 @@ class FletchSite():
 
     def testActions(self):
         """Trigger notifications to email and sms actions"""
-        _log.warning('Manually notifying email and sms')
+        _log.warning('Manually notifying actions')
         fakeCheck = util.check.BaseCheck('Notification')
         fakeCheck.checkType = 'action-test'
         fakeCheck.failState = False
         fakeCheck.timezone = self.timezone
         fakeCheck.lastPass = util.check.timeString(self.timezone)
-        fakeCheck.log = ['Testing action notification to:', 'email', 'sms']
+        fakeCheck.log = ['Testing action notification', '...']
         emailOK = False
         if 'email' in self.actions:
             emailOK = self.actions['email'].trigger(fakeCheck)
         smsOK = False
         if 'sms' in self.actions:
             smsOK = self.actions['sms'].trigger(fakeCheck)
-        return emailOK and smsOK
+        mqttOK = False
+        if 'mqtt' in self.actions:
+            mqttOK = self.actions['mqtt'].trigger(fakeCheck)
+        return emailOK and smsOK and mqttOK
 
     def addAction(self, name, config):
         """Add the named action to site"""

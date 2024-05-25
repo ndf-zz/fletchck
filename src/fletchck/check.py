@@ -144,6 +144,13 @@ class BaseCheck():
         else:
             return 'PASS'
 
+    def getSummary():
+        """Return a short text summary of the check state"""
+        ret = ''
+        if self.failState and self.log:
+            ret = self.log[-1]
+        return ret
+
     def notify(self):
         """Trigger all configured actions"""
         for action in self.actions:
@@ -461,6 +468,10 @@ class sshCheck(BaseCheck):
                 self.log.append('%s:%d %r' % (hostname, port, hk))
                 if hostkey is not None and hostkey != hk:
                     raise ValueError('Invalid host key')
+                elif hostkey is None:
+                    _log.info('%s (%s) %s: Adding hostkey=%s', self.name,
+                              self.checkType, hostname, hk)
+                    self.options['hostkey'] = hk
                 self.log.append('ignore: %r' % (t.send_ignore()))
                 self.log.append('close: %r' % (t.close()))
                 failState = False
@@ -565,6 +576,16 @@ class sequenceCheck(BaseCheck):
             self.del_check(name)
             self.add_check(check)
 
+    def getSummary(self):
+        ret = ''
+        if self.failState:
+            rv = []
+            for check in self.failState.split(','):
+                rv.append(' %s \u26a0\ufe0f' % (check, ))
+            if rv:
+                ret = '\n'.join(rv)
+        return ret
+
     def _runCheck(self):
         failChecks = set()
         aux = []
@@ -575,6 +596,7 @@ class sequenceCheck(BaseCheck):
         aux.sort()
         sortedChecks = [n[2] for n in aux]
 
+        # Perform each check in order
         for name in sortedChecks:
             c = self.checks[name]
             cFail = c.update()
@@ -589,7 +611,13 @@ class sequenceCheck(BaseCheck):
                 self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
 
         _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failChecks)
-        return ','.join(failChecks)
+
+        # Prepare ordered list of failing checks
+        rv = []
+        for name in sortedChecks:
+            if name in failChecks:
+                rv.append(name)
+        return ','.join(rv)
 
 
 CHECK_TYPES['cert'] = certCheck

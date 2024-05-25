@@ -9,6 +9,9 @@ from smtplib import SMTP_SSL
 from email.mime.text import MIMEText
 from email.utils import make_msgid, formatdate
 from subprocess import run
+from paho.mqtt.client import MQTTv5
+from paho.mqtt.publish import single as publish
+import json
 
 import ssl
 
@@ -47,6 +50,9 @@ class BaseAction():
     def getListOpt(self, key, default=None):
         return defaults.getOpt(key, self.options, list, default)
 
+    def getBoolOpt(self, key, default=None):
+        return defaults.getOpt(key, self.options, bool, default)
+
     def _notify(self, source):
         return True
 
@@ -65,6 +71,49 @@ class BaseAction():
     def flatten(self):
         """Return the action detail as a flattened dictionary"""
         return {'type': self.actionType, 'options': self.options}
+
+
+class publishMsg(BaseAction):
+    """Publish single message to MQTT broker"""
+
+    def _notify(self, source):
+        ret = True
+        basetopic = self.getStrOpt('topic')
+        if basetopic is not None:
+            # todo: sanitise source name?
+            topic = basetopic + '/' + source.name.replace('/', '')
+            hostname = self.getStrOpt('hostname')
+            port = self.getIntOpt('port', 8883)
+            username = self.getStrOpt('username')
+            password = self.getStrOpt('password')
+            auth = None
+            if username or password:
+                auth = {'username': username, 'password': password}
+            usetls = self.getBoolOpt('usetls', True)
+            msg = json.dumps(source.flatten(), indent=1)
+            _log.debug('Publish msg to %r via %r : %r', topic, hostname, msg)
+
+            ret = False
+            try:
+                ctx = None
+                if usetls:
+                    ctx = ssl.create_default_context()
+                publish(topic=topic,
+                        payload=msg,
+                        qos=1,
+                        retain=True,
+                        hostname=hostname,
+                        port=port,
+                        auth=auth,
+                        tls=ctx,
+                        protocol=MQTTv5)
+                ret = True
+            except Exception as e:
+                _log.warning('MQTT publish notify failed: %s', e)
+
+        else:
+            _log.warning('MQTT publish notify not configured')
+        return ret
 
 
 class sendEmail(BaseAction):
@@ -152,14 +201,21 @@ class apiSms(BaseAction):
     """Post SMS via smscentral api"""
 
     def trigger(self, source):
-        message = '%s (%s) in %s state at %s%s'
+        message = '%s: %s\n%s\n%s'
         if source.failState:
-            message = message % (source.name, source.checkType,
-                                 source.getState(), source.lastFail, '')
+            message = message % (
+                source.name,
+                source.getState(),
+                source.getSummary(),
+                source.lastFail,
+            )
         else:
-            message = message % (source.name, source.checkType,
-                                 source.getState(), source.lastPass,
-                                 '\n\U0001F4A9\U0001F44D')
+            message = message % (
+                source.name,
+                source.getState(),
+                '\U0001F4A9\U0001F44D',
+                source.lastPass,
+            )
         sender = self.getStrOpt('sender', 'dedicated')
         recipients = [i for i in self.getListOpt('recipients', [])]
         username = self.getStrOpt('username')
@@ -201,3 +257,4 @@ class apiSms(BaseAction):
 
 ACTION_TYPES['email'] = sendEmail
 ACTION_TYPES['sms'] = apiSms
+ACTION_TYPES['mqtt'] = publishMsg

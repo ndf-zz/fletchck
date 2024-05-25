@@ -106,6 +106,20 @@ class LogHandler(Handler):
             del (self.site.log[0:10])
 
 
+def mac2ll(macaddr):
+    """Convert MAC address to IPv6 Link Local address"""
+    ret = None
+    try:
+        leui48 = int(macaddr.replace(':', ''), 16) | 1 << 41
+        llval = 0xfe80 << 112 | 0xfffe << 24 | (
+            leui48 & 0xffffff000000) << 16 | leui48 & 0xffffff
+        addr = ipaddress.IPv6Address(llval)
+        ret = str(addr)
+    except Exception:
+        _log.info('Invalid MAC address %s: %s', e.__class__.__name__, e)
+    return ret
+
+
 def trigger2Text(trigger):
     """Convert a trigger schedule object to text string"""
     rv = []
@@ -300,7 +314,17 @@ def initSite(path, webUi=True):
         siteCfg['webui'] = None
 
     # Add the basic actions and an empty set of checks
-    siteCfg['actions'] = {'email': {'type': 'email'}, 'sms': {'type': 'sms'}}
+    siteCfg['actions'] = {
+        'email': {
+            'type': 'email'
+        },
+        'sms': {
+            'type': 'sms'
+        },
+        'mqtt': {
+            'type': 'mqtt'
+        }
+    }
     fallback = None
     if os.path.exists(defaults.SENDMAIL):
         fallback = defaults.SENDMAIL

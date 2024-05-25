@@ -341,6 +341,8 @@ class ActionsHandler(BaseHandler):
             self._site.addAction('email', {'type': 'email'})
         if 'sms' not in self._site.actions:
             self._site.addAction('sms', {'type': 'sms'})
+        if 'mqtt' not in self._site.actions:
+            self._site.addAction('mqtt', {'type': 'mqtt'})
 
         if self.get_argument('test', ''):
             _log.info('Sending test notifications')
@@ -363,6 +365,7 @@ class ActionsHandler(BaseHandler):
         # transfer form data into options
         emailOptions = {}
         smsOptions = {}
+        mqttOptions = {}
 
         # list options
         nv = self.get_argument('email.recipients', '')
@@ -378,7 +381,8 @@ class ActionsHandler(BaseHandler):
 
         # string options
         for key in [
-                'site', 'hostname', 'username', 'password', 'sender', 'url'
+                'topic', 'site', 'hostname', 'username', 'password', 'sender',
+                'url'
         ]:
             nv = self.get_argument('email.' + key, '')
             if nv:
@@ -386,6 +390,9 @@ class ActionsHandler(BaseHandler):
             nv = self.get_argument('sms.' + key, '')
             if nv:
                 smsOptions[key] = nv
+            nv = self.get_argument('mqtt.' + key, '')
+            if nv:
+                mqttOptions[key] = nv
 
         # fallback is email only
         nv = self.get_argument('email.fallback', '')
@@ -400,10 +407,14 @@ class ActionsHandler(BaseHandler):
             nv = self.get_argument('sms.' + key, '')
             if nv:
                 smsOptions[key] = int(nv)
+            nv = self.get_argument('mqtt.' + key, '')
+            if nv:
+                mqttOptions[key] = int(nv)
 
         async with self._site._lock:
             self._site.actions['email'].options = emailOptions
             self._site.actions['sms'].options = smsOptions
+            self._site.actions['mqtt'].options = mqttOptions
             await tornado.ioloop.IOLoop.current().run_in_executor(
                 None, self._site.saveConfig)
         self.redirect('/actions')
