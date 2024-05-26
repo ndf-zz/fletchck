@@ -576,8 +576,9 @@ def loadSite(site):
                             trigOpts['timezone'] = site.checks[c].timezone
                         elif site.timezone:
                             trigOpts['timezone'] = site.timezone
-                    scheduler.add_job(site.checks[c].update,
-                                      trigType,
+                    scheduler.add_job(site.runCheck,
+                                      trigger=trigType,
+                                      kwargs={'name': c},
                                       id=c,
                                       **trigOpts)
                 else:

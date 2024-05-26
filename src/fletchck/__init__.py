@@ -154,8 +154,7 @@ class FletchSite():
         checkType = defaults.getOpt('type', ob, str, None)
         data = defaults.getOpt('data', ob, dict, None)
         if name and checkType and data:
-            _log.info('Received remote check name=%r, type=%r, data=%r', name,
-                      checkType, data)
+            _log.info('Remote check name=%r, type=%r', name, checkType)
             if name not in self.checks:
                 if self.mqttCfg['autoadd']:
                     _log.warning('Adding new remote check with name=%r', name)

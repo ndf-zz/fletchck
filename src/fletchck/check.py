@@ -148,7 +148,7 @@ class BaseCheck():
         else:
             return 'PASS'
 
-    def getSummary():
+    def getSummary(self):
         """Return a short text summary of the check state"""
         ret = ''
         if self.failState and self.log:
@@ -245,6 +245,7 @@ class BaseCheck():
             'name': self.name,
             'type': self.checkType,
             'data': {
+                'threshold': self.threshold,
                 'failState': self.failState,
                 'failCount': self.failCount,
                 'log': self.log,
@@ -581,18 +582,45 @@ class remoteCheck(BaseCheck):
         failState = self.failState
         et = 0
         if timeout and self.lastUpdate:
-            et = thisTime - self.lastUpdate
+            et = (thisTime - self.lastUpdate).total_seconds()
             if et > timeout:
-                _log.warning('%s: Timeout waiting for update %d sec/ %s', et,
-                             self.lastUpdate.strftime("%d %b %Y %H:%M %Z"))
+                lustr = self.lastUpdate.strftime("%d %b %Y %H:%M %Z")
+                _log.debug('%s (%s): Timeout waiting for update %d sec / %s',
+                           self.name, self.checkType, et, lustr)
+                self.log.append('Timeout waiting for update %d sec' % (et, ))
                 failState = True
-        return self.failState
+        return failState
 
     def remoteUpdate(self, data):
-        # ... handle remote update notification
+        """Report remote transition (replicates baseCheck.update)"""
+        doNotify = False
+        if data['failState']:
+            if data['failCount'] >= data['threshold']:
+                if data['failState'] != self.failState:
+                    _log.warning('%s (%s) Log: %r', self.name, self.checkType,
+                                 data['log'])
+                    _log.warning('%s (%s) FAIL', self.name, self.checkType)
+                    if self.failAction:
+                        doNotify = True
+        else:
+            if self.failState:
+                _log.warning('%s (%s) PASS', self.name, self.checkType)
+                if self.passAction:
+                    doNotify = True
+
+        # Overwrite state from remote data
+        self.failState = data['failState']
         self.lastUpdate = datetime.now().astimezone(self.timezone)
-        _log.warning('Update internal state from data')
-        # TODO: update internal state from remote data and trigger actions
+        self.failCount = data['failCount']
+        self.threshold = data['threshold']
+        self.log.extend(data['log'])
+        self.softFail = data['softFail']
+        self.lastCheck = data['lastCheck']
+        self.lastFail = data['lastFail']
+        self.lastPass = data['lastPass']
+
+        if doNotify:
+            self.notify()
 
 
 class sequenceCheck(BaseCheck):
