@@ -3,13 +3,14 @@
 Fletchck is a self-contained network service monitor.
 It provides a suite of simple internet service
 checks with flexible scheduling provided by
-[APScheduler](https://apscheduler.readthedocs.io/en/master/).
+[APScheduler](https://apscheduler.readthedocs.io/en/master/)
+and optional remote notification via MQTT.
 Service checks trigger notification actions
 as they transition from pass to fail or vice-versa.
 Configuration is via JSON file or an in-built web
 user interface.
 
-The following anonymous checks are supported:
+The following checks are supported:
 
    - smtp: SMTP with optional starttls
    - submit: SMTP-over-SSL/Submissions
@@ -17,6 +18,11 @@ The following anonymous checks are supported:
    - https: HTTP request
    - cert: Check TLS certificate validity and/or expiry
    - ssh: SSH pre-auth connection with optional hostkey check
+   - disk: Disk space check, fails when usage exceeds percentage
+   - ups: Monitor a "QS" serial UPS status
+   - upstest: Perform a "QS" serial UPS self-test and report faults
+   - remote: Tracks the state of a check running on a remote instance
+     fletchck over MQTT
    - sequence: A sequence of checks, fails if any one check fails
 
 Service checks that use TLS will verify the service certificate
@@ -28,6 +34,7 @@ The following notification actions are supported:
 
    - email: Send an email
    - sms: Post SMS via SMS Central API
+   - mqtt: Publish a one-shot MQTT message to the configured broker
 
 ## Installation
 
@@ -54,6 +61,7 @@ key | type | description
 base | str | Full path to location of site configuration file
 timezone | str | Time zone for notifications, schedules and interface
 webui | dict | Web user interface configuration (see Web UI below)
+mqtt | dict | Web user interface configuration (see MQTT below)
 actions | dict | Notification actions (see Actions below)
 checks | dict | Service checks (see Checks below)
 
@@ -62,6 +70,7 @@ Notes:
    - All toplevel keys are optional
    - If webui is not present or null, the web user interface
      will not be started.
+   - If mqtt is not present or null, the MQTT client is not started.
    - Action and check names may be any string that can be used
      as a dictionary key and that can be serialised in JSON.
    - Duplicate action and check names will overwrite earlier
@@ -100,10 +109,11 @@ with the following keys and values:
 
 key | type | description
 --- | --- | ---
-type | str | Check type: cert, smtp, submit, imap, https, ssh or sequence
+type | str | Check type: cert, smtp, submit, imap, https, ssh, remote, disk, ups, upstest or sequence
+subType | str | Optional subtype, set on update for remote checks
 trigger | dict | Trigger definition (see Scheduling below)
 threshold | int | Fail state reported after this many failed checks
-failAction | bool | Send notification action on transision to fail
+failAction | bool | Send notification action on transition to fail
 passAction | bool | Send notification action on transition to pass
 options | dict | Dictionary of option names and values (see below)
 actions | list | List of notification action names
@@ -117,7 +127,7 @@ option | type | description
 --- | --- | ---
 hostname | str | Hostname or IP address of target service
 port | int | TCP port of target service
-timeout | int | Socket timeout in seconds
+timeout | int | Timeout in seconds
 timezone | str | Timezone for schedule and notification
 selfsigned | bool | If set, TLS sessions will not validate service certificate
 tls | bool | (smtp) If set, call starttls to initiate TLS
@@ -126,6 +136,9 @@ reqType | str | (https) Request method: HEAD, GET, POST, PUT, DELETE, etc
 reqPath | str | (https) Request target resource
 hostkey | str | (ssh) Target service base64 encoded public key
 checks| list | (sequence) List of check names to be run in-turn
+volume | str | (disk) Path of disk volume to be checked
+level | int | (disk) Disk space failure percentage
+serialPort | str | (ups*) Serial port to use for UPS communication
 
 Unrecognised options are ignored by checks.
 
@@ -224,15 +237,13 @@ A cron trigger with an explicit timezone:
 
 The check is scheduled to be run at a repeating interval
 of the specified number of weeks, days, hours, minutes
-and seconds. Optionally provide a start time and jitter
-to adjust the initial trigger and add a random execution delay.
+and seconds. Optionally provide a start time
+to adjust the initial trigger.
 
-For example, a trigger that runs every 10 minutes
-with a 20 second jitter:
+For example, a trigger that runs every 10 minutes:
 
 	"interval": {
-	 "minutes": 10,
-	 "jitter": 20
+	 "minutes": 10
 	}
 
 Interval reference: [apscheduler.triggers.interval](https://apscheduler.readthedocs.io/en/3.x/modules/triggers/interval.html)
@@ -266,3 +277,33 @@ port | int | port to listen on
 name | str | site name displayed on header
 base | str | path to configuration file
 users | dict | authorised usernames and hashed passwords
+
+## MQTT
+
+The fletchck instance can be configured to maintain a persistent
+MQTT connection using the mqtt configuration object:
+
+key | type | description
+--- | --- | ---
+hostname | str | MQTT broker hostname or IP
+port | int | MQTT broker port
+tls | bool | Use TLS for client connection
+username | str | Login username
+password | str | Login password
+clientid | str | Client id for persistent connection (None for automatic)
+persist | bool | Use a persistent connection (default: True)
+qos | int | QoS for publish and subscribe (default: 1 "at least once")
+retain | bool | Publish check updates with retain flag (default: True)
+basetopic | str | Topic to receive remote updates
+autoadd | bool | Automatically add remote checks on reception of update message
+debug | bool | Include debugging information on MQTT client
+
+Checks are configured to report to MQTT by entering a topic
+in the "publish" option. Reception of valid notifications
+to the configured "basetopic" option (which may include a trailing
+wildcard) will trigger update of the remote check state.
+
+To monitor a remote check for lack of update, add an interval
+or cron trigger to the remote entry and edit the timeout time
+to set an update expiry.
+
