@@ -61,7 +61,7 @@ key | type | description
 base | str | Full path to location of site configuration file
 timezone | str | Time zone for notifications, schedules and interface
 webui | dict | Web user interface configuration (see Web UI below)
-mqtt | dict | Web user interface configuration (see MQTT below)
+mqtt | dict | Persistent MQTT client connection (see MQTT below)
 actions | dict | Notification actions (see Actions below)
 checks | dict | Service checks (see Checks below)
 
