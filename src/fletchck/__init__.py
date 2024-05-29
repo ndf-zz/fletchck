@@ -105,6 +105,10 @@ class FletchSite():
         """Add the named check to site"""
         util.addCheck(self, name, config)
 
+    def addRemote(self, name, checkType):
+        """Auto-add a remote check"""
+        util.addCheck(self, name, {'type': 'remote', 'subType': checkType})
+
     def updateCheck(self, name, newName, config):
         """Update existing check to match new config"""
         util.updateCheck(self, name, newName, config)
@@ -154,13 +158,11 @@ class FletchSite():
         checkType = defaults.getOpt('type', ob, str, None)
         data = defaults.getOpt('data', ob, dict, None)
         if name and checkType and data:
-            _log.info('Remote check name=%r, type=%r', name, checkType)
             if name not in self.checks:
                 if self.mqttCfg['autoadd']:
-                    _log.warning('Adding new remote check with name=%r', name)
-                    pass  # TODO: auto-add remote check
+                    self.addRemote(name, checkType)
             if name in self.checks and self.checks[name].checkType == 'remote':
-                self.checks[name].remoteUpdate(data)
+                self.checks[name].remoteUpdate(checkType, data)
             else:
                 _log.info('Ignore unconfigured remote check %r', name)
         else:

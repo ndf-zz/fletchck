@@ -3,6 +3,7 @@
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from dateutil.parser import parse as dateparse
 from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 from smtplib import SMTP, SMTP_SSL
@@ -12,6 +13,7 @@ from paramiko.transport import Transport as SSH
 from threading import Lock
 from cryptography import x509
 from .ups import UpsQsV
+from shutil import disk_usage
 import ssl
 import socket
 
@@ -20,6 +22,8 @@ _log.setLevel(INFO)
 getLogger('paramiko.transport').setLevel(INFO)
 
 CHECK_TYPES = {}
+_TERA = 1024 * 1024 * 1024 * 1024
+_GIGA = 1024 * 1024 * 1024
 
 # Serial port locks
 _serialLock = {'': Lock()}
@@ -68,6 +72,8 @@ def loadCheck(name, config, timezone=None):
         if 'threshold' in config and isinstance(config['threshold'], int):
             if config['threshold'] > 0:
                 ret.threshold = config['threshold']
+        if 'subType' in config and isinstance(config['subType'], str):
+            ret.subType = config['subType']
         if 'priority' in config and isinstance(config['priority'], int):
             ret.priority = config['priority']
         if 'failAction' in config and isinstance(config['failAction'], bool):
@@ -99,6 +105,9 @@ def loadCheck(name, config, timezone=None):
             if 'lastCheck' in config['data']:
                 if isinstance(config['data']['lastCheck'], str):
                     ret.lastCheck = config['data']['lastCheck']
+            if 'lastUpdate' in config['data']:
+                if isinstance(config['data']['lastUpdate'], str):
+                    ret.lastUpdate = config['data']['lastUpdate']
             if 'softFail' in config['data']:
                 if isinstance(config['data']['softFail'], str):
                     ret.softFail = config['data']['softFail']
@@ -122,6 +131,7 @@ class BaseCheck():
         self.priority = 0
         self.options = options
         self.checkType = None
+        self.subType = None
         self.trigger = None
         self.timezone = None
 
@@ -193,7 +203,6 @@ class BaseCheck():
                         self.notify()
         else:
             self.failCount = 0
-            self.log.clear()
             if self.failState:
                 _log.warning('%s (%s) PASS', self.name, self.checkType)
                 self.failState = curFail
@@ -262,6 +271,7 @@ class BaseCheck():
         depList = [d for d in self.depends]
         return {
             'type': self.checkType,
+            'subType': self.subType,
             'trigger': self.trigger,
             'threshold': self.threshold,
             'priority': self.priority,
@@ -277,6 +287,7 @@ class BaseCheck():
                 'log': self.log,
                 'softFail': self.softFail,
                 'lastCheck': self.lastCheck,
+                'lastUpdate': self.lastUpdate,
                 'lastFail': self.lastFail,
                 'lastPass': self.lastPass
             }
@@ -582,35 +593,50 @@ class remoteCheck(BaseCheck):
         failState = self.failState
         et = 0
         if timeout and self.lastUpdate:
-            et = (thisTime - self.lastUpdate).total_seconds()
+            lu = dateparse(self.lastUpdate)
+            et = (thisTime - lu).total_seconds()
             if et > timeout:
-                lustr = self.lastUpdate.strftime("%d %b %Y %H:%M %Z")
                 _log.debug('%s (%s): Timeout waiting for update %d sec / %s',
-                           self.name, self.checkType, et, lustr)
-                self.log.append('Timeout waiting for update %d sec' % (et, ))
+                           self.name, self.checkType, et, self.lastUpdate)
+                self.log.append('Timeout waiting for update %d sec (%s)' %
+                                (et, self.lastUpdate))
                 failState = True
         return failState
 
-    def remoteUpdate(self, data):
+    def remoteUpdate(self, checkType, data):
         """Report remote transition (replicates baseCheck.update)"""
+        self.subType = checkType
         doNotify = False
         if data['failState']:
             if data['failCount'] >= data['threshold']:
                 if data['failState'] != self.failState:
-                    _log.warning('%s (%s) Log: %r', self.name, self.checkType,
-                                 data['log'])
-                    _log.warning('%s (%s) FAIL', self.name, self.checkType)
+                    _log.warning('%s (%s.%s) Log: %r', self.name,
+                                 self.checkType, self.subType, data['log'])
+                    _log.warning('%s (%s.%s) FAIL', self.name, self.checkType,
+                                 self.subType)
                     if self.failAction:
                         doNotify = True
         else:
             if self.failState:
-                _log.warning('%s (%s) PASS', self.name, self.checkType)
+                _log.warning('%s (%s.%s) PASS', self.name, self.checkType,
+                             self.subType)
                 if self.passAction:
                     doNotify = True
 
+        # Check last update field
+        lastUpdate = timeString(self.timezone)
+        if 'lastCheck' in data and data['lastCheck']:
+            # verify value as a datestring
+            try:
+                lu = dateparse(data['lastCheck'])
+                lastUpdate = data['lastCheck']
+            except Exception:
+                _log.info('%s (%s.%s): Ignored invalid last update time',
+                          self.name, self.checkType, self.subType)
+
         # Overwrite state from remote data
         self.failState = data['failState']
-        self.lastUpdate = datetime.now().astimezone(self.timezone)
+        self.lastUpdate = lastUpdate
         self.failCount = data['failCount']
         self.threshold = data['threshold']
         self.log.extend(data['log'])
@@ -618,9 +644,42 @@ class remoteCheck(BaseCheck):
         self.lastCheck = data['lastCheck']
         self.lastFail = data['lastFail']
         self.lastPass = data['lastPass']
-
         if doNotify:
             self.notify()
+
+
+class diskCheck(BaseCheck):
+    """Check a disk volume for free space"""
+
+    # todo: add disk heath reporting where available
+    def _runCheck(self):
+        volume = self.getStrOpt('volume', '/')
+        level = self.getIntOpt('level', 90)
+
+        failState = True
+        try:
+            du = disk_usage(volume)
+            dpct = 100.0 * du.used / du.total
+            if du.total > 0.8 * _TERA:
+                msg = '%s (%s) %s: %2.0f%% %0.2f/%0.2fTiB, %0.2fTiB Free' % (
+                    self.name, self.checkType, volume, dpct, du.used / _TERA,
+                    du.total / _TERA, du.free / _TERA)
+            else:
+                msg = '%s (%s) %s: %2.0f%% %0.0f/%0.0fGiB, %0.0fGiB Free' % (
+                    self.name, self.checkType, volume, dpct, du.used / _GIGA,
+                    du.total / _GIGA, du.free / _GIGA)
+
+            self.log.append(msg)
+            if dpct < level:
+                failState = False
+        except Exception as e:
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
+                       volume, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, volume,
+                   failState)
+        return failState
 
 
 class sequenceCheck(BaseCheck):
@@ -702,3 +761,4 @@ CHECK_TYPES['sequence'] = sequenceCheck
 CHECK_TYPES['ups'] = upsStatus
 CHECK_TYPES['upstest'] = upsTest
 CHECK_TYPES['remote'] = remoteCheck
+CHECK_TYPES['disk'] = diskCheck

@@ -452,7 +452,7 @@ def addCheck(site, name, config):
                                    kwargs={'name': name},
                                    id=name,
                                    **trigOpts)
-    _log.warning('Added check %s to site', name)
+    _log.warning('Added check %s (%s) to site', name, newCheck.checkType)
 
 
 def deleteCheck(site, check):

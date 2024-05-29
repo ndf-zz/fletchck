@@ -1,11 +1,15 @@
 {% extends "dash.html" %}
 {% block main %}
  {% if check and oldName %}
-  <h2 class="my-3">{{ oldName }} ({{ check.checkType }})</h2>
+  <h2 class="my-3">{{ oldName }} ({{ check.checkType }}): {{ check.getState() }}</h2>
   <ul>
    <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
    <li>Last Fail: {{ check.lastFail }}</li>
    <li>Last Pass: {{ check.lastPass }}</li>
+   {% if check.checkType == 'remote' %}
+   <li>Remote Type: {{ check.subType }}</li>
+   <li>Last Updated: {{ check.lastUpdate if check.lastUpdate else 'N/A' }}</li>
+   {% end %}
   </ul>
   {% if check.log %}
   <h2>Last Check</h2>
@@ -30,7 +34,7 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'ups', 'upstest', 'sequence'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'disk', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -62,6 +66,7 @@
   <label for="publish" class="form-label">MQTT publish topic</label>
  </div>
 
+ <!-- options -->
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostname') }}">
   <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ check.options['hostname'] if 'hostname' in check.options else '' }}">
   <label for="hostname" class="form-label">Hostname</label>
@@ -72,6 +77,16 @@
   <label for="port" class="form-label">Port</label>
  </div>
 
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'volume') }}">
+  <input type="text" class="form-control" name="volume" id="volume" placeholder="volume" value="{{ check.options['volume'] if 'volume' in check.options else '/' }}">
+  <label for="volume" class="form-label">Disk Volume</label>
+ </div>
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'level') }}">
+  <input type="number" class="form-control" min="1" max="99" step="1" name="level" id="level" value="{{ check.options['level'] if 'level' in check.options else '90' }}">
+  <label for="level" class="form-label">Trigger Level %</label>
+ </div>
+
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'serialPort') }}">
   <input type="text" class="form-control" name="serialPort" id="serialPort" placeholder="serialPort" value="{{ check.options['serialPort'] if 'serialPort' in check.options else '' }}">
   <label for="serialPort" class="form-label">Serial Port (ups checks)</label>
@@ -79,7 +94,7 @@
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'timeout') }}">
   <input type="number" class="form-control" name="timeout" id="timeout" placeholder="10" value="{{ check.options['timeout'] if 'timeout' in check.options else '' }}">
-  <label for="timeout" class="form-label">Socket timeout (seconds)</label>
+  <label for="timeout" class="form-label">Timeout (seconds)</label>
  </div>
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostkey') }}">

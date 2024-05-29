@@ -40,9 +40,11 @@ MQTTCONFIG = {
     'password': None,
     'clientid': None,
     'persist': True,
-    'qos': 0,
+    'qos': 1,
+    'retain': True,
     'basetopic': None,
     'autoadd': True,
+    'debug': False,
 }
 
 # Format for the volatile log
@@ -96,36 +98,49 @@ SENDMAIL = '/usr/lib/sendmail'
 
 # Hide options for named check types
 HIDEOPTIONS = {
-    'cert':
-    {'serialPort', 'hostkey', 'reqType', 'reqPath', 'checks', 'tls', 'beeper'},
+    'cert': {
+        'level', 'volume', 'serialPort', 'hostkey', 'reqType', 'reqPath',
+        'checks', 'tls', 'beeper'
+    },
     'submit': {
-        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'beeper', 'tls'
+        'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'beeper', 'tls'
     },
     'smtp': {
-        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'beeper'
+        'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'beeper'
     },
     'imap': {
-        'serialPort', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'beeper', 'tls'
+    },
+    'https': {
+        'level', 'volume', 'serialPort', 'probe', 'hostkey', 'checks',
         'beeper', 'tls'
     },
-    'https': {'serialPort', 'probe', 'hostkey', 'checks', 'beeper', 'tls'},
     'ssh': {
-        'serialPort', 'probe', 'reqType', 'reqPath', 'checks', 'selfsigned',
-        'tls', 'beeper'
+        'level', 'volume', 'serialPort', 'probe', 'reqType', 'reqPath',
+        'checks', 'selfsigned', 'tls', 'beeper'
     },
     'sequence': {
-        'hostname', 'port', 'serialPort', 'timeout', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'selfsigned', 'tls', 'beeper'
+        'level', 'volume', 'hostname', 'port', 'serialPort', 'timeout',
+        'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned', 'tls', 'beeper'
+    },
+    'remote': {
+        'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper'
+    },
+    'disk': {
+        'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
+        'selfsigned', 'tls', 'timeout', 'serialPort', 'beeper'
     },
     'ups': {
-        'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls', 'timeout'
+        'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout'
     },
     'upstest': {
-        'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls', 'timeout'
+        'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout'
     }
 }
 

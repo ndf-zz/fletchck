@@ -12,7 +12,7 @@ from uuid import uuid4
 QUEUE_TIMEOUT = 2
 
 _log = getLogger('fletchck.mqtt')
-_log.setLevel(DEBUG)
+_log.setLevel(INFO)
 
 
 def fromJson(payload=None):
@@ -105,21 +105,23 @@ class Mclient(threading.Thread):
         """Suspend calling thread until command queue is processed."""
         self.__queue.join()
 
-    def publish(self, message=None, topic=None, qos=None, retain=False):
+    def publish(self, message=None, topic=None, qos=None, retain=None):
         """Publish the provided message to topic."""
         self.__queue.put_nowait(('PUBLISH', topic, message, qos, retain))
 
     def publish_json(self,
                      obj=None,
                      topic=None,
-                     qos=None,
-                     retain=False,
                      cls=None,
+                     qos=None,
+                     retain=None,
                      indent=None):
         """Pack the provided object into JSON and publish to topic."""
         try:
-            self.publish(json.dumps(obj, cls=cls, indent=indent), topic, qos,
-                         retain)
+            self.publish(json.dumps(obj, cls=cls, indent=indent),
+                         topic,
+                         qos=qos,
+                         retain=retain)
         except Exception as e:
             _log.error('Error publishing object %r: %s', obj, e)
 
@@ -134,6 +136,7 @@ class Mclient(threading.Thread):
         self.__cid = None
         self.__resub = True
         self.__doreconnect = False
+        self.__debug = False
 
         # read config
         self.__host = defaults.getOpt('hostname', options, str, 'localhost')
@@ -141,9 +144,11 @@ class Mclient(threading.Thread):
         if self.__port is None:
             self.__port = 1883
         self.__basetopic = defaults.getOpt('basetopic', options, str, None)
-        self.__qos = defaults.getOpt('qos', options, int, 0)
+        self.__qos = defaults.getOpt('qos', options, int, 1)
+        self.__retain = defaults.getOpt('retain', options, bool, True)
         self.__persist = defaults.getOpt('persist', options, bool, True)
         self.__cid = defaults.getOpt('clientid', options, str, None)
+        self.__debug = defaults.getOpt('debug', options, bool, False)
         self.__deftopic = None
 
         # check values
@@ -160,12 +165,12 @@ class Mclient(threading.Thread):
         self.__client = mqtt.Client(client_id=self.__cid,
                                     clean_session=not self.__persist)
 
-        # Temp: enable client library debug
-        if True:
-            _log.debug('Enabling mqtt/paho debug')
+        if self.__debug:
+            _log.info('Enabling mqtt/paho debug')
             mqlog = getLogger('fletchck.mqttlib')
             mqlog.setLevel(DEBUG)
             self.__client.enable_logger(mqlog)
+            _log.setLevel(DEBUG)
 
         if defaults.getOpt('tls', options, bool, False):
             _log.debug('Enabling TLS connection')
@@ -259,11 +264,14 @@ class Mclient(threading.Thread):
                         nqos = m[3]
                         if nqos is None:
                             nqos = self.__qos
+                        nretain = m[4]
+                        if nretain is None:
+                            nretain = self.__retain
                         if ntopic:
                             msg = None
                             if m[2] is not None:
                                 msg = m[2].encode('utf-8')
-                            self.__client.publish(ntopic, msg, nqos, m[4])
+                            self.__client.publish(ntopic, msg, nqos, nretain)
                         else:
                             #_log.debug(u'No topic, msg ignored: %r', m[1])
                             pass

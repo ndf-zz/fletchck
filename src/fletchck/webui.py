@@ -233,8 +233,13 @@ class CheckHandler(BaseHandler):
         newConf['options'] = {}
         # string options
         for key in [
-                'hostname', 'serialPort', 'probe', 'reqType', 'reqPath',
-                'hostkey'
+                'hostname',
+                'serialPort',
+                'probe',
+                'reqType',
+                'reqPath',
+                'hostkey',
+                'volume',
         ]:
             temp = self.get_argument(key, '')
             if temp:
@@ -247,7 +252,7 @@ class CheckHandler(BaseHandler):
             if zinf is None:
                 formErrors.append('Invalid timezone %r' % (temp))
         # int options
-        for key in ['port', 'timeout']:
+        for key in ['port', 'timeout', 'level']:
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = int(temp)
@@ -386,8 +391,13 @@ class ActionsHandler(BaseHandler):
 
         # string options
         for key in [
-                'topic', 'site', 'hostname', 'username', 'password', 'sender',
-                'url'
+                'topic',
+                'site',
+                'hostname',
+                'username',
+                'password',
+                'sender',
+                'url',
         ]:
             nv = self.get_argument('email.' + key, '')
             if nv:
