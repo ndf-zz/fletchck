@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fletchck"
-version = "1.0.5a1"
+version = "1.0.5a2"
 description = "Machine monitor"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -29,6 +29,7 @@ dependencies = [
     "pyserial",
     "argon2-cffi",
     "paho-mqtt",
+    "python-dateutil",
 ]
 
 [project.urls]
