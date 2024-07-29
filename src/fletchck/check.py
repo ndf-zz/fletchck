@@ -28,6 +28,11 @@ _GIGA = 1024 * 1024 * 1024
 # Serial port locks
 _serialLock = {'': Lock()}
 
+# Temporary: Common local timezone labels
+LOCALZONES = {
+ "AEST": +36000, "AEDT": +39600,
+ "ACST": +34200, "ACDT": +37800,
+}
 
 def timeString(timezone=None):
     return datetime.now().astimezone(timezone).strftime("%d %b %Y %H:%M %Z")
@@ -142,6 +147,7 @@ class BaseCheck():
         self.softFail = None
         self.failCount = 0
         self.log = []
+        self.oldLog = None
         self.lastFail = None
         self.lastPass = None
         self.lastCheck = None
@@ -183,6 +189,7 @@ class BaseCheck():
                 self.log = ['SOFTFAIL (depends=%s)' % (d)]
                 return True
 
+        self.oldLog = self.log
         self.log = []
         curFail = self._runCheck()
         _log.info('%s (%s): %s curFail=%r prevFail=%r failCount=%r %s',
@@ -593,7 +600,7 @@ class remoteCheck(BaseCheck):
         failState = self.failState
         et = 0
         if timeout and self.lastUpdate:
-            lu = dateparse(self.lastUpdate)
+            lu = dateparse(self.lastUpdate, tzinfos=LOCALZONES).astimezone(self.timezone)
             et = (thisTime - lu).total_seconds()
             if et > timeout:
                 _log.debug('%s (%s): Timeout waiting for update %d sec / %s',
@@ -601,6 +608,10 @@ class remoteCheck(BaseCheck):
                 self.log.append('Timeout waiting for update %d sec (%s)' %
                                 (et, self.lastUpdate))
                 failState = True
+            else:
+                # restore remote log if non-empty
+                if self.oldLog:
+                    self.log = self.oldLog
         return failState
 
     def remoteUpdate(self, checkType, data):
@@ -628,7 +639,7 @@ class remoteCheck(BaseCheck):
         if 'lastCheck' in data and data['lastCheck']:
             # verify value as a datestring
             try:
-                lu = dateparse(data['lastCheck'])
+                lu = dateparse(data['lastCheck'], tzinfos=LOCALZONES).astimezone(self.timezone)
                 lastUpdate = data['lastCheck']
             except Exception:
                 _log.info('%s (%s.%s): Ignored invalid last update time',
@@ -639,7 +650,7 @@ class remoteCheck(BaseCheck):
         self.lastUpdate = lastUpdate
         self.failCount = data['failCount']
         self.threshold = data['threshold']
-        self.log.extend(data['log'])
+        self.log = data['log']
         self.softFail = data['softFail']
         self.lastCheck = data['lastCheck']
         self.lastFail = data['lastFail']
