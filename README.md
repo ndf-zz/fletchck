@@ -225,9 +225,9 @@ check may have one optional trigger of type interval or cron.
 Within the web interface, trigger schedules are entered
 using a plain text whitespace separated list of value/unit pairs.
 
-An interval trigger with a 20 second jitter time and an explicit start:
+An interval trigger with an explicit start:
 
-	interval 1 week 2 day 3 hr 5 min 15 sec 20 jitter 2025-06-15 start
+	interval 1 week 2 day 3 hr 5 min 15 sec 2025-06-15 start
 
 A cron trigger with an explicit timezone:
 

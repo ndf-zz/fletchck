@@ -30,9 +30,12 @@ _serialLock = {'': Lock()}
 
 # Temporary: Common local timezone labels
 LOCALZONES = {
- "AEST": +36000, "AEDT": +39600,
- "ACST": +34200, "ACDT": +37800,
+    "AEST": +36000,
+    "AEDT": +39600,
+    "ACST": +34200,
+    "ACDT": +37800,
 }
+
 
 def timeString(timezone=None):
     return datetime.now().astimezone(timezone).strftime("%d %b %Y %H:%M %Z")
@@ -600,7 +603,8 @@ class remoteCheck(BaseCheck):
         failState = self.failState
         et = 0
         if timeout and self.lastUpdate:
-            lu = dateparse(self.lastUpdate, tzinfos=LOCALZONES).astimezone(self.timezone)
+            lu = dateparse(self.lastUpdate,
+                           tzinfos=LOCALZONES).astimezone(self.timezone)
             et = (thisTime - lu).total_seconds()
             if et > timeout:
                 _log.debug('%s (%s): Timeout waiting for update %d sec / %s',
@@ -639,7 +643,8 @@ class remoteCheck(BaseCheck):
         if 'lastCheck' in data and data['lastCheck']:
             # verify value as a datestring
             try:
-                lu = dateparse(data['lastCheck'], tzinfos=LOCALZONES).astimezone(self.timezone)
+                lu = dateparse(data['lastCheck'],
+                               tzinfos=LOCALZONES).astimezone(self.timezone)
                 lastUpdate = data['lastCheck']
             except Exception:
                 _log.info('%s (%s.%s): Ignored invalid last update time',
