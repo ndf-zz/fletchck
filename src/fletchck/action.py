@@ -128,7 +128,7 @@ class sendEmail(BaseAction):
         ml.append('%s (%s) in %s state at %s%s' %
                   (source.name, source.checkType, source.getState(),
                    source.lastFail if source.failState else source.lastPass,
-                   '' if source.failState else '\n\U0001F4A9\U0001F44D'))
+                   '' if source.failState else '\n\U0001f436\U0001F44D'))
         if source.log:
             ml.append('')
             ml.append('Log:')
@@ -197,6 +197,62 @@ class sendEmail(BaseAction):
         return ret
 
 
+class ckSms(BaseAction):
+    """Post SMS via cloudkinnect api"""
+
+    def trigger(self, source):
+        message = '%s: %s\n%s\n%s'
+        if source.failState:
+            message = '\U0001f436\U0001f4ac\n%s: %s\n%s\n%s' % (
+                source.name,
+                source.getState(),
+                source.getSummary(),
+                source.lastFail,
+            )
+        else:
+            message = '\U0001f436\U0001F44D\n%s: %s\n%s' % (
+                source.name,
+                source.getState(),
+                source.lastPass,
+            )
+        sender = self.getStrOpt('sender', 'dedicated')
+        recipients = [i for i in self.getListOpt('recipients', [])]
+        url = self.getStrOpt('url', defaults.CKURL)
+        apikey = self.getStrOpt('apikey')
+
+        httpClient = HTTPClient()
+        failCount = 0
+        while recipients and failCount < defaults.ACTIONTRIES:
+            recipient = ','.join(recipients)
+            _log.debug('Send sms to %r via %r : %r', recipient, url, message)
+            postBody = urlencode({
+                'originator': sender,
+                'mobile_number': recipient,
+                'concatenated': 'true',
+                'utf': 'true',
+                'text': message
+            })
+            try:
+                response = httpClient.fetch(
+                    url,
+                    method='POST',
+                    headers={
+                        'Authorization': 'Bearer ' + apikey,
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body=postBody)
+                if response.code == 200:
+                    recipients = None
+                else:
+                    failCount += 1
+                    _log.warning('SMS Notify failed: %r:%r', response.code,
+                                 response.body)
+            except Exception as e:
+                failCount += 1
+                _log.warning('SMS Notify failed: %s', e)
+        return not recipients
+
+
 class apiSms(BaseAction):
     """Post SMS via smscentral api"""
 
@@ -213,7 +269,7 @@ class apiSms(BaseAction):
             message = message % (
                 source.name,
                 source.getState(),
-                '\U0001F4A9\U0001F44D',
+                '\U0001f436\U0001F44D',
                 source.lastPass,
             )
         sender = self.getStrOpt('sender', 'dedicated')
@@ -257,4 +313,5 @@ class apiSms(BaseAction):
 
 ACTION_TYPES['email'] = sendEmail
 ACTION_TYPES['sms'] = apiSms
+ACTION_TYPES['cksms'] = ckSms
 ACTION_TYPES['mqtt'] = publishMsg

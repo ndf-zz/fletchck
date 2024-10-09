@@ -56,6 +56,10 @@
   <label for="sms.recipients" class="form-label">Recipients (space separated)</label>
  </div>
  <div class="form-floating">
+  <input type="text" class="form-control" name="sms.apikey" id="sms.apikey" placeholder="apikey" value="{{ site.actions['sms'].options['apikey'] if 'apikey' in site.actions['sms'].options else '' }}">
+  <label for="sms.username" class="form-label">API Key</label>
+ </div>
+ <div class="form-floating">
   <input type="text" class="form-control" name="sms.username" id="sms.username" placeholder="username" value="{{ site.actions['sms'].options['username'] if 'username' in site.actions['sms'].options else '' }}">
   <label for="sms.username" class="form-label">Username</label>
  </div>

@@ -90,6 +90,9 @@ CERTEXPIRYDAYS = 7
 # POST Endpoint for SMS Central API
 SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
 
+# POST Endpoint for CK API
+CKURL = 'https://sms-api.cloudkinnekt.au/smsp-in'
+
 # Try action trigger this many times before giving up
 ACTIONTRIES = 3
 

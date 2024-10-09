@@ -395,6 +395,7 @@ class ActionsHandler(BaseHandler):
                 'site',
                 'hostname',
                 'username',
+                'apikey',
                 'password',
                 'sender',
                 'url',
