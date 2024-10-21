@@ -223,7 +223,7 @@ class ckSms(BaseAction):
         httpClient = HTTPClient()
         failCount = 0
         while recipients and failCount < defaults.ACTIONTRIES:
-            recipient = ','.join(recipients)
+            recipient = ','.join(recipients).replace('+', '')
             _log.debug('Send sms to %r via %r : %r', recipient, url, message)
             postBody = urlencode({
                 'originator': sender,

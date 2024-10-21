@@ -195,11 +195,11 @@ class Mclient(threading.Thread):
     def __reconnect(self):
         if not self.__connect_pending:
             if self.__connected:
-                _log.debug('Disconnecting client')
+                _log.info('Disconnecting client')
                 self.__client.disconnect()
                 self.__client.loop_stop()
             if self.__host:
-                _log.debug('Connecting to %s:%d', self.__host, self.__port)
+                _log.info('Connecting to %s:%d', self.__host, self.__port)
                 self.__connect_pending = True
                 self.__client.connect_async(self.__host, self.__port)
                 self.__client.loop_start()
