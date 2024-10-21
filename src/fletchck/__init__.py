@@ -154,19 +154,23 @@ class FletchSite():
     def recvMsg(self, topic=None, message=None):
         """MQTT Message receive calback"""
         ob = mclient.fromJson(message)
-        name = defaults.getOpt('name', ob, str, None)
-        checkType = defaults.getOpt('type', ob, str, None)
-        data = defaults.getOpt('data', ob, dict, None)
-        if name and checkType and data:
-            if name not in self.checks:
-                if self.mqttCfg['autoadd']:
-                    self.addRemote(name, checkType)
-            if name in self.checks and self.checks[name].checkType == 'remote':
-                self.checks[name].remoteUpdate(checkType, data)
+        if ob is not None and isinstance(ob, dict):
+            name = defaults.getOpt('name', ob, str, None)
+            checkType = defaults.getOpt('type', ob, str, None)
+            data = defaults.getOpt('data', ob, dict, None)
+            if name and checkType and data:
+                if name not in self.checks:
+                    if self.mqttCfg['autoadd']:
+                        self.addRemote(name, checkType)
+                if name in self.checks and self.checks[
+                        name].checkType == 'remote':
+                    self.checks[name].remoteUpdate(checkType, data)
+                else:
+                    _log.info('Ignore unconfigured remote check %r', name)
             else:
-                _log.info('Ignore unconfigured remote check %r', name)
+                _log.info('Ignored malformed MQTT message object')
         else:
-            _log.info('Ignored malformed MQTT message object')
+            _log.info('Ignored invalid MQTT message object')
 
     def sendMsg(self, topic, obj):
         """MQTT publish obj to the nominated topic"""
