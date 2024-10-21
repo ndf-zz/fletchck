@@ -578,6 +578,7 @@ def loadSite(site):
                             trigOpts['timezone'] = site.timezone
                     scheduler.add_job(site.runCheck,
                                       trigger=trigType,
+                                      misfire_grace_time=None,
                                       kwargs={'name': c},
                                       id=c,
                                       **trigOpts)
