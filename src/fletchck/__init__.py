@@ -212,11 +212,13 @@ class FletchSite():
 
         # create mqtt client library handle
         if self.mqttCfg:
-            _log.debug('Creating mqtt client handler')
+            _log.debug('Creating mqtt client')
             self._mqtt = mclient.Mclient(self.mqttCfg)
             self._mqtt.setcb(self.recvMsg)
             self._mqtt.start()
             if 'basetopic' in self.mqttCfg and self.mqttCfg['basetopic']:
+                _log.info('Subscribe basetopic = %s',
+                          self.mqttCfg['basetopic'])
                 self._mqtt.subscribe(self.mqttCfg['basetopic'])
 
         # create tornado application and listen on configured hostname

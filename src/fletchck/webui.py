@@ -216,6 +216,9 @@ class CheckHandler(BaseHandler):
         temp = self.get_argument('threshold', '')
         if temp:
             newConf['threshold'] = int(temp)
+        temp = self.get_argument('retries', '')
+        if temp:
+            newConf['retries'] = int(temp)
         temp = self.get_argument('priority', '')
         if temp:
             newConf['priority'] = int(temp)

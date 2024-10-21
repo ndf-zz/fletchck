@@ -80,6 +80,9 @@ def loadCheck(name, config, timezone=None):
         if 'threshold' in config and isinstance(config['threshold'], int):
             if config['threshold'] > 0:
                 ret.threshold = config['threshold']
+        if 'retries' in config and isinstance(config['retries'], int):
+            if config['retries'] > 0:
+                ret.retries = config['retries']
         if 'subType' in config and isinstance(config['subType'], str):
             ret.subType = config['subType']
         if 'priority' in config and isinstance(config['priority'], int):
@@ -136,6 +139,7 @@ class BaseCheck():
         self.passAction = True
         self.publish = None
         self.threshold = 1
+        self.retries = 1
         self.priority = 0
         self.options = options
         self.checkType = None
@@ -194,7 +198,16 @@ class BaseCheck():
 
         self.oldLog = self.log
         self.log = []
-        curFail = self._runCheck()
+        count = 0
+        while count < self.retries:
+            count += 1
+            if count > 1:
+                _log.info('%s (%s): Retrying %d/%d', self.name, self.checkType,
+                          count, self.retries)
+            curFail = self._runCheck()
+            if not curFail:
+                break
+
         _log.info('%s (%s): %s curFail=%r prevFail=%r failCount=%r %s',
                   self.name, self.checkType, self.getState(), curFail,
                   self.failState, self.failCount, thisTime)
@@ -284,6 +297,7 @@ class BaseCheck():
             'subType': self.subType,
             'trigger': self.trigger,
             'threshold': self.threshold,
+            'retries': self.retries,
             'priority': self.priority,
             'failAction': self.failAction,
             'passAction': self.passAction,
