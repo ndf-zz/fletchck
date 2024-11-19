@@ -103,47 +103,55 @@ SENDMAIL = '/usr/lib/sendmail'
 HIDEOPTIONS = {
     'cert': {
         'level', 'volume', 'serialPort', 'hostkey', 'reqType', 'reqPath',
-        'checks', 'tls', 'beeper'
+        'checks', 'tls', 'beeper', 'temperature', 'hysteresis'
     },
     'submit': {
         'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'beeper', 'tls'
+        'reqPath', 'checks', 'beeper', 'tls', 'temperature', 'hysteresis'
     },
     'smtp': {
         'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'beeper'
+        'reqPath', 'checks', 'beeper', 'temperature', 'hysteresis'
     },
     'imap': {
         'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'beeper', 'tls'
+        'reqPath', 'checks', 'beeper', 'tls', 'temperature', 'hysteresis'
     },
     'https': {
         'level', 'volume', 'serialPort', 'probe', 'hostkey', 'checks',
-        'beeper', 'tls'
+        'beeper', 'tls', 'temperature', 'hysteresis'
     },
     'ssh': {
         'level', 'volume', 'serialPort', 'probe', 'reqType', 'reqPath',
-        'checks', 'selfsigned', 'tls', 'beeper'
+        'checks', 'selfsigned', 'tls', 'beeper', 'temperature', 'hysteresis'
     },
     'sequence': {
         'level', 'volume', 'hostname', 'port', 'serialPort', 'timeout',
-        'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned', 'tls', 'beeper'
+        'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned', 'tls',
+        'beeper', 'temperature', 'hysteresis'
     },
     'remote': {
         'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper'
+        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper',
+        'temperature', 'hysteresis'
     },
     'disk': {
         'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls', 'timeout', 'serialPort', 'beeper'
+        'selfsigned', 'tls', 'timeout', 'serialPort', 'beeper', 'temperature'
+    },
+    'temp': {
+        'hostkey', 'level', 'volume', 'probe', 'reqType', 'reqPath', 'checks',
+        'selfsigned', 'tls', 'serialPort', 'beeper'
     },
     'ups': {
         'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout'
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'temperature',
+        'hysteresis'
     },
     'upstest': {
         'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout'
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'temperature',
+        'hysteresis'
     }
 }
 

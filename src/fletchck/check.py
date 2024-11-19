@@ -8,7 +8,7 @@ from . import defaults
 from logging import getLogger, DEBUG, INFO, WARNING, ERROR
 from smtplib import SMTP, SMTP_SSL
 from imaplib import IMAP4_SSL, IMAP4_SSL_PORT
-from http.client import HTTPSConnection
+from http.client import HTTPSConnection, HTTPConnection
 from paramiko.transport import Transport as SSH
 from threading import Lock
 from cryptography import x509
@@ -16,6 +16,10 @@ from .ups import UpsQsV
 from shutil import disk_usage
 import ssl
 import socket
+try:
+    from lxml import etree
+except ImportError:
+    import xml.etree.ElementTree as etree
 
 _log = getLogger('fletchck.check')
 _log.setLevel(INFO)
@@ -122,6 +126,9 @@ def loadCheck(name, config, timezone=None):
             if 'softFail' in config['data']:
                 if isinstance(config['data']['softFail'], str):
                     ret.softFail = config['data']['softFail']
+            if 'level' in config['data']:
+                if isinstance(config['data']['level'], str):
+                    ret.level = config['data']['level']
             if 'log' in config['data']:
                 if isinstance(config['data']['log'], list):
                     ret.log = config['data']['log']
@@ -146,6 +153,7 @@ class BaseCheck():
         self.subType = None
         self.trigger = None
         self.timezone = None
+        self.level = None
 
         self.actions = {}
         self.depends = {}
@@ -208,9 +216,10 @@ class BaseCheck():
             if not curFail:
                 break
 
-        _log.info('%s (%s): %s curFail=%r prevFail=%r failCount=%r %s',
-                  self.name, self.checkType, self.getState(), curFail,
-                  self.failState, self.failCount, thisTime)
+        _log.info(
+            '%s (%s): %s curFail=%r prevFail=%r failCount=%r level=%r %s',
+            self.name, self.checkType, self.getState(), curFail,
+            self.failState, self.failCount, self.level, thisTime)
 
         if curFail:
             self.failCount += 1
@@ -313,7 +322,8 @@ class BaseCheck():
                 'lastCheck': self.lastCheck,
                 'lastUpdate': self.lastUpdate,
                 'lastFail': self.lastFail,
-                'lastPass': self.lastPass
+                'lastPass': self.lastPass,
+                'level': self.level
             }
         }
 
@@ -403,7 +413,7 @@ class imapCheck(BaseCheck):
             with IMAP4_SSL(host=hostname,
                            port=port,
                            ssl_context=ctx,
-                           timeout=defaults.IMAPTIMEOUT) as i:
+                           timeout=timeout) as i:
                 certExpiry(i.sock.getpeercert())
                 self.log.append(repr(i.noop()))
                 self.log.append(repr(i.logout()))
@@ -427,6 +437,7 @@ class certCheck(BaseCheck):
         timeout = self.getIntOpt('timeout', defaults.CERTTIMEOUT)
         selfsigned = self.getBoolOpt('selfsigned', False)
         probe = self.getStrOpt('probe')
+        self.level = None
 
         failState = True
         try:
@@ -451,6 +462,7 @@ class certCheck(BaseCheck):
                 expiry = cert.not_valid_after.timestamp()
                 nowsecs = datetime.now().timestamp()
                 daysLeft = (expiry - nowsecs) // 86400
+                self.level = '%d days' % (daysLeft, )
                 _log.debug('Certificate %r expiry %r: %d days', hostname,
                            cert.not_valid_after.astimezone().isoformat(),
                            daysLeft)
@@ -489,7 +501,7 @@ class httpsCheck(BaseCheck):
                 ctx.verify_mode = ssl.CERT_NONE
             h = HTTPSConnection(host=hostname,
                                 port=port,
-                                timeout=defaults.HTTPSTIMEOUT,
+                                timeout=timeout,
                                 context=ctx)
             h.request(reqType, reqPath)
             certExpiry(h.sock.getpeercert())
@@ -674,6 +686,7 @@ class remoteCheck(BaseCheck):
         self.lastCheck = data['lastCheck']
         self.lastFail = data['lastFail']
         self.lastPass = data['lastPass']
+        self.level = data['level']
         if doNotify:
             self.notify()
 
@@ -681,34 +694,111 @@ class remoteCheck(BaseCheck):
 class diskCheck(BaseCheck):
     """Check a disk volume for free space"""
 
-    # todo: add disk heath reporting where available
+    # todo: add disk health reporting where available
     def _runCheck(self):
+        self.level = None
         volume = self.getStrOpt('volume', '/')
         level = self.getIntOpt('level', 90)
+        hysteresis = self.getIntOpt('hysteresis', 4)
 
         failState = True
         try:
             du = disk_usage(volume)
             dpct = 100.0 * du.used / du.total
             if du.total > 0.8 * _TERA:
-                msg = '%s (%s) %s: %2.0f%% %0.2f/%0.2fTiB, %0.2fTiB Free' % (
-                    self.name, self.checkType, volume, dpct, du.used / _TERA,
-                    du.total / _TERA, du.free / _TERA)
+                msg = '%s: %2.0f%% %0.2f/%0.2fTiB, %0.2fTiB Free, Target: %d%%' % (
+                    volume, dpct, du.used / _TERA, du.total / _TERA,
+                    du.free / _TERA, level)
             else:
-                msg = '%s (%s) %s: %2.0f%% %0.0f/%0.0fGiB, %0.0fGiB Free' % (
-                    self.name, self.checkType, volume, dpct, du.used / _GIGA,
-                    du.total / _GIGA, du.free / _GIGA)
+                msg = '%s: %2.0f%% %0.0f/%0.0fGiB, %0.0fGiB Free, Target: %d%%' % (
+                    volume, dpct, du.used / _GIGA, du.total / _GIGA,
+                    du.free / _GIGA, level)
 
+            self.level = '%2.0f%%' % (dpct, )
             self.log.append(msg)
-            if dpct < level:
-                failState = False
+
+            prevFail = self.failState
+            if prevFail:
+                if dpct < (level - hysteresis):  # low trigger
+                    failState = False
+                else:
+                    failState = True
+            else:
+                if dpct > level:  # high trigger
+                    failState = True
+                else:
+                    failState = False
         except Exception as e:
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        volume, e.__class__.__name__, e, self.log)
-            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+            self.log.append('%s %s: %s' % (volume, e.__class__.__name__, e))
 
         _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, volume,
                    failState)
+        return failState
+
+
+class tempCheck(BaseCheck):
+    """Network-attached temperature probe check"""
+
+    def _fetchTemp(self, hostname, port, timeout, variant='comet'):
+        """Return current temperature reading"""
+        h = HTTPConnection(host=hostname, port=port, timeout=timeout)
+        h.request('GET', '/event.xml')
+        r = h.getresponse()
+        tv = None
+        if r.status == 200:
+            tree = etree.parse(r)
+            root = tree.getroot()
+            e = root.find('all')
+            if e is not None:
+                te = e.find('vs1')
+                if te is not None:
+                    ts = te.text
+                    if ts.endswith('\u00b0C'):
+                        ts = ts.rstrip('\u00b0C')
+                        tv = float(ts)
+        else:
+            _log.debug('Invalid http response: %r', r.status)
+
+        if tv is None:
+            raise RuntimeError('Unable to read temperature from XML')
+        return tv
+
+    def _runCheck(self):
+        self.level = None
+        hostname = self.getStrOpt('hostname', '')
+        port = self.getIntOpt('port', 80)
+        timeout = self.getIntOpt('timeout', defaults.HTTPSTIMEOUT)
+        temperature = self.getIntOpt('temperature', 50)
+        hysteresis = self.getIntOpt('hysteresis', 2)
+
+        failState = True
+        try:
+            # read current temp
+            curTemp = self._fetchTemp(hostname, port, timeout, 'comet')
+            prevFail = self.failState
+
+            if prevFail:
+                if curTemp < (temperature - hysteresis):  # low trigger
+                    failState = False
+                else:
+                    failState = True
+            else:
+                if curTemp > temperature:  # high trigger
+                    failState = True
+                else:
+                    failState = False
+            msg = '%s: %0.1f\u00b0C Target: %d\u00b0C' % (hostname, curTemp,
+                                                          temperature)
+            self.level = '%0.1f\u00b0C' % (curTemp, )
+            self.log.append(msg)
+        except Exception as e:
+            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+                       e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+
+        _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failState)
         return failState
 
 
@@ -718,6 +808,8 @@ class sequenceCheck(BaseCheck):
     def __init__(self, name, options={}):
         super().__init__(name, options)
         self.checks = {}
+        self.softFails = set()
+        self.levels = {}
 
     def add_check(self, check):
         """Add check to the sequence"""
@@ -738,16 +830,25 @@ class sequenceCheck(BaseCheck):
             self.add_check(check)
 
     def getSummary(self):
+        """Return a short summary of failing checks"""
         ret = ''
         if self.failState:
             rv = []
             for check in self.failState.split(','):
-                rv.append(' %s \u26a0\ufe0f' % (check, ))
+                lvl = ''
+                mark = '\u26a0\ufe0f'
+                if check in self.levels:
+                    lvl = self.levels[check]
+                if check in self.softFails:
+                    mark = '\u26d4'
+                rv.append(' %s %s%s' % (check, mark, lvl))
             if rv:
                 ret = '\n'.join(rv)
         return ret
 
     def _runCheck(self):
+        self.softfail = set()
+        self.levels = {}
         failChecks = set()
         aux = []
         count = 0
@@ -761,9 +862,13 @@ class sequenceCheck(BaseCheck):
         for name in sortedChecks:
             c = self.checks[name]
             cFail = c.update()
+            if c.level is not None:
+                self.levels[c.name] = c.level
             cMsg = 'PASS'
             if cFail:
                 failChecks.add(c.name)
+                if c.softFail:
+                    self.softFails.add(c.name)
                 cMsg = 'FAIL'
                 self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
                 self.log.extend(c.log)
@@ -792,3 +897,4 @@ CHECK_TYPES['ups'] = upsStatus
 CHECK_TYPES['upstest'] = upsTest
 CHECK_TYPES['remote'] = remoteCheck
 CHECK_TYPES['disk'] = diskCheck
+CHECK_TYPES['temp'] = tempCheck

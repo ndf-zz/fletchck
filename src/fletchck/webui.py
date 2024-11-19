@@ -255,7 +255,7 @@ class CheckHandler(BaseHandler):
             if zinf is None:
                 formErrors.append('Invalid timezone %r' % (temp))
         # int options
-        for key in ['port', 'timeout', 'level']:
+        for key in ['port', 'timeout', 'level', 'temperature', 'hysteresis']:
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = int(temp)

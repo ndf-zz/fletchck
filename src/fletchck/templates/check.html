@@ -34,7 +34,7 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'disk', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'disk', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -89,6 +89,16 @@
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'level') }}">
   <input type="number" class="form-control" min="1" max="99" step="1" name="level" id="level" value="{{ check.options['level'] if 'level' in check.options else '90' }}">
   <label for="level" class="form-label">Trigger Level %</label>
+ </div>
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'temperature') }}">
+  <input type="number" class="form-control" min="-20" max="80" step="1" name="temperature" id="temperature" value="{{ check.options['temperature'] if 'temperature' in check.options else '50' }}">
+  <label for="temperature" class="form-label">Trigger Temperature &deg;C</label>
+ </div>
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hysteresis') }}">
+  <input type="number" class="form-control" min="1" max="10" step="1" name="hysteresis" id="hysteresis" value="{{ check.options['hysteresis'] if 'hysteresis' in check.options else '1' }}">
+  <label for="hysteresis" class="form-label">Hysteresis</label>
  </div>
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'serialPort') }}">
