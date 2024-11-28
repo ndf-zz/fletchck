@@ -293,7 +293,8 @@ class BaseCheck():
                 'softFail': self.softFail,
                 'lastCheck': self.lastCheck,
                 'lastFail': self.lastFail,
-                'lastPass': self.lastPass
+                'lastPass': self.lastPass,
+                'level': self.level
             }
         }
 
@@ -644,8 +645,47 @@ class remoteCheck(BaseCheck):
                     self.log = self.oldLog
         return failState
 
+    def checkData(self, data):
+        """Check remote data object for required content"""
+        ret = True
+        try:
+            # int types
+            for k in ('threshold', 'failCount'):
+                if data[k] is not None:
+                    if not isinstance(data[k], int):
+                        raise RuntimeError('Invalid %s, expecting int', k)
+
+            # level is optional
+            if 'level' not in data:
+                data['level'] = None
+
+            # str types
+            for k in ('softFail', 'lastCheck', 'lastFail', 'lastPass',
+                      'level'):
+                if data[k] is not None:
+                    if not isinstance(data[k], str):
+                        raise RuntimeError('Invalid %s, expecting str', k)
+
+            # failState just needs to be present
+            junk = data['failState']
+
+            # log should be an array
+            if not isinstance(data['log'], list):
+                raise RuntimeError('Invalid log, expecting list')
+
+        except Exception as e:
+            _log.warning('%s (%s) Invalid remote data %s: %s', self.name,
+                         self.checkType, e.__class__.__name__, e)
+            ret = False
+        return ret
+
     def remoteUpdate(self, checkType, data):
         """Report remote transition (replicates baseCheck.update)"""
+        if not self.checkData(data):
+            _log.warning('%s (%s.%s): Ignored invalid remote data', self.name,
+                         self.checkType, checkType)
+            return
+
         self.subType = checkType
         doNotify = False
         if data['failState']:
