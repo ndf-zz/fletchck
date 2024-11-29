@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.0.6] 2024-11-29
+
+### Added
+
+  - Add new action type for Cloudkinnect SMS API
+  - Add new check 'temp' to query temperature of comet poe thermometer
+
+### Changed
+
+  - Retry failing checks 'retries' times before flagging failed state
+  - Change notification icon from poo to dog
+  - Include 'level' stat for checks where that makes sense (disk,temp)
+  - Adjust sequence summary to show softfail checks with "no entry"
+  - Simplify logs and summaries
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+   - Fix unhandled JSON object decode error for remote messages
+   - Fix invalid property on disk check exception
+
+### Security
+
+   - Add strict checking on remote data validation
+
 ## [1.0.5] 2024-07-29
 
 ### Added
