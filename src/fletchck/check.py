@@ -634,9 +634,9 @@ class remoteCheck(BaseCheck):
                            tzinfos=LOCALZONES).astimezone(self.timezone)
             et = (thisTime - lu).total_seconds()
             if et > timeout:
-                _log.debug('%s (%s): Timeout waiting for update %d sec / %s',
-                           self.name, self.checkType, et, self.lastUpdate)
-                self.log.append('Timeout waiting for update %d sec (%s)' %
+                _log.debug('%s (%s): Update timeout %d sec / %s', self.name,
+                           self.checkType, et, self.lastUpdate)
+                self.log.append('Update timeout %d sec (%s)' %
                                 (et, self.lastUpdate))
                 failState = True
             else:
