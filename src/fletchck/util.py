@@ -427,6 +427,8 @@ def addCheck(site, name, config):
 
     # add check to site
     site.checks[name] = newCheck
+    if newCheck.remoteId is not None:
+        site.remotes[newCheck.remoteId] = name
     _log.debug('Load check %r (%s)', name, newCheck.checkType)
 
     # schedule check
@@ -466,6 +468,8 @@ def deleteCheck(site, check):
     # remove
     if check in site.checks:
         tempCheck = site.checks[check]
+        if tempCheck.remoteId is not None:
+            del site.remotes[tempCheck.remoteId]
         del site.checks[check]
 
         # remove check from depends and sequences
@@ -528,6 +532,7 @@ def loadSite(site):
 
         # load checks
         site.checks = {}
+        site.remotes = {}
         if 'checks' in srcCfg and isinstance(srcCfg['checks'], dict):
             for c in srcCfg['checks']:
                 if isinstance(srcCfg['checks'][c], dict):
@@ -543,6 +548,8 @@ def loadSite(site):
                                     _log.info('%s ignored unknown action %s',
                                               c, a)
                     site.checks[c] = newCheck
+                    if newCheck.remoteId is not None:
+                        site.remotes[newCheck.remoteId] = c
                     _log.debug('Load check %r (%s)', c, newCheck.checkType)
         # patch the check dependencies, sequences and triggers
         for c in site.checks:

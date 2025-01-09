@@ -70,6 +70,11 @@
   <label for="publish" class="form-label">MQTT publish topic</label>
  </div>
 
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'remoteId') }}">
+  <input type="text" class="form-control" name="remoteId" id="remoteId" placeholder="Topic" value="{{ check.remoteId if check.remoteId else '' }}">
+  <label for="remoteId" class="form-label">Remote ID</label>
+ </div>
+
  <!-- options -->
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostname') }}">
   <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ check.options['hostname'] if 'hostname' in check.options else '' }}">

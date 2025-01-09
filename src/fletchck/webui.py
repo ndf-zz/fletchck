@@ -233,6 +233,11 @@ class CheckHandler(BaseHandler):
             newConf['publish'] = ptopic
         else:
             newConf['publish'] = None
+        remid = self.get_argument('remoteId', None)
+        if remid:
+            newConf['remoteId'] = remid
+        else:
+            newConf['remoteId'] = None
         newConf['options'] = {}
         # string options
         for key in [
@@ -317,6 +322,13 @@ class CheckHandler(BaseHandler):
 
         if 'data' in oldConf:
             newConf['data'] = oldConf['data']
+
+        # patch remoteId if name changes on a remote check
+        if check.checkType == 'remote':
+            if oldName and checkName != oldName and check.remoteId is None:
+                _log.debug('Using oldname=%r for remoteId on remote check %r',
+                           oldName, checkName)
+                newConf['remoteId'] = oldName
 
         # if form input ok - check changes
         async with self._site._lock:

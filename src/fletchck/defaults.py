@@ -87,6 +87,18 @@ CERTTIMEOUT = 5
 # TLS certificate expiry pre-failure in days
 CERTEXPIRYDAYS = 7
 
+# Disk full threshold (percent)
+DISKLEVEL = 90
+
+# Hysteresis for disk checks (percent)
+DISKHYSTERESIS = 2
+
+# Temperature warning threshold (degrees C)
+TEMPLEVEL = 50
+
+# Hysteresis for temp checks (degrees C)
+TEMPHYSTERESIS = 2
+
 # POST Endpoint for SMS Central API
 SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
 
@@ -102,56 +114,60 @@ SENDMAIL = '/usr/lib/sendmail'
 # Hide options for named check types
 HIDEOPTIONS = {
     'cert': {
-        'level', 'volume', 'serialPort', 'hostkey', 'reqType', 'reqPath',
-        'checks', 'tls', 'beeper', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'reqType',
+        'reqPath', 'checks', 'tls', 'beeper', 'temperature', 'hysteresis'
     },
     'submit': {
-        'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'beeper', 'tls', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'beeper', 'tls', 'temperature',
+        'hysteresis'
     },
     'smtp': {
-        'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'beeper', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'beeper', 'temperature', 'hysteresis'
     },
     'imap': {
-        'level', 'volume', 'serialPort', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'beeper', 'tls', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'beeper', 'tls', 'temperature',
+        'hysteresis'
     },
     'https': {
-        'level', 'volume', 'serialPort', 'probe', 'hostkey', 'checks',
-        'beeper', 'tls', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'serialPort', 'probe', 'hostkey',
+        'checks', 'beeper', 'tls', 'temperature', 'hysteresis'
     },
     'ssh': {
-        'level', 'volume', 'serialPort', 'probe', 'reqType', 'reqPath',
-        'checks', 'selfsigned', 'tls', 'beeper', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'serialPort', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'beeper', 'temperature',
+        'hysteresis'
     },
     'sequence': {
-        'level', 'volume', 'hostname', 'port', 'serialPort', 'timeout',
-        'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned', 'tls',
-        'beeper', 'temperature', 'hysteresis'
+        'remoteId', 'level', 'volume', 'hostname', 'port', 'serialPort',
+        'timeout', 'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned',
+        'tls', 'beeper', 'temperature', 'hysteresis'
     },
     'remote': {
-        'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper',
-        'temperature', 'hysteresis'
+        'publish', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort',
+        'beeper', 'temperature', 'hysteresis'
     },
     'disk': {
-        'hostname', 'port', 'hostkey', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls', 'timeout', 'serialPort', 'beeper', 'temperature'
+        'remoteId', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'serialPort',
+        'beeper', 'temperature'
     },
     'temp': {
-        'hostkey', 'level', 'volume', 'probe', 'reqType', 'reqPath', 'checks',
-        'selfsigned', 'tls', 'serialPort', 'beeper'
+        'remoteId', 'hostkey', 'level', 'volume', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper'
     },
     'ups': {
-        'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'temperature',
-        'hysteresis'
+        'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
+        'temperature', 'hysteresis'
     },
     'upstest': {
-        'level', 'volume', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'temperature',
-        'hysteresis'
+        'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
+        'temperature', 'hysteresis'
     }
 }
 

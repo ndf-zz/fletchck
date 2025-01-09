@@ -97,6 +97,8 @@ def loadCheck(name, config, timezone=None):
             ret.passAction = config['passAction']
         if 'publish' in config and isinstance(config['publish'], str):
             ret.publish = config['publish']
+        if 'remoteId' in config and isinstance(config['remoteId'], str):
+            ret.remoteId = config['remoteId']
         if 'timezone' in options and isinstance(options['timezone'], str):
             ret.timezone = getZone(options['timezone'])
         if 'data' in config:
@@ -145,6 +147,7 @@ class BaseCheck():
         self.failAction = True
         self.passAction = True
         self.publish = None
+        self.remoteId = None
         self.threshold = 1
         self.retries = 1
         self.priority = 0
@@ -312,6 +315,7 @@ class BaseCheck():
             'failAction': self.failAction,
             'passAction': self.passAction,
             'publish': self.publish,
+            'remoteId': self.remoteId,
             'options': self.options,
             'actions': actList,
             'depends': depList,
@@ -738,8 +742,8 @@ class diskCheck(BaseCheck):
     def _runCheck(self):
         self.level = None
         volume = self.getStrOpt('volume', '/')
-        level = self.getIntOpt('level', 90)
-        hysteresis = self.getIntOpt('hysteresis', 4)
+        level = self.getIntOpt('level', defaults.DISKLEVEL)
+        hysteresis = self.getIntOpt('hysteresis', defaults.DISKHYSTERESIS)
 
         failState = True
         try:
@@ -810,8 +814,8 @@ class tempCheck(BaseCheck):
         hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port', 80)
         timeout = self.getIntOpt('timeout', defaults.HTTPSTIMEOUT)
-        temperature = self.getIntOpt('temperature', 50)
-        hysteresis = self.getIntOpt('hysteresis', 2)
+        temperature = self.getIntOpt('temperature', defaults.TEMPLEVEL)
+        hysteresis = self.getIntOpt('hysteresis', defaults.TEMPHYSTERESIS)
 
         failState = True
         try:

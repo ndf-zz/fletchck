@@ -11,9 +11,9 @@ from logging import getLogger, DEBUG, INFO, WARNING, basicConfig, Formatter
 from signal import SIGTERM
 from . import mclient
 
-basicConfig(level=INFO)
+basicConfig(level=DEBUG)
 _log = getLogger('fletchck')
-_log.setLevel(INFO)
+_log.setLevel(DEBUG)
 
 # Command line options
 define("config", default=None, help="specify site config file", type=str)
@@ -38,6 +38,7 @@ class FletchSite():
         self.scheduler = None
         self.actions = None
         self.checks = None
+        self.remotes = None
         self.webCfg = None
         self.mqttCfg = None
 
@@ -82,13 +83,15 @@ class FletchSite():
     def hideOption(self, path, check, option):
         """Return a visually-hidden class for options not in check type"""
         ret = ''
+        if path and check in defaults.HIDEOPTIONS:
+            if option in defaults.HIDEOPTIONS[check]:
+                ret = ' visually-hidden'
+
+        # override publish when mqtt disabled
         if option == 'publish':
             if not self._mqtt:
                 ret = ' visually-hidden'
-        else:
-            if path and check in defaults.HIDEOPTIONS:
-                if option in defaults.HIDEOPTIONS[check]:
-                    ret = ' visually-hidden'
+
         return ret
 
     def sortedChecks(self):
@@ -105,9 +108,13 @@ class FletchSite():
         """Add the named check to site"""
         util.addCheck(self, name, config)
 
-    def addRemote(self, name, checkType):
+    def addRemote(self, name, checkType, remoteId=None):
         """Auto-add a remote check"""
-        util.addCheck(self, name, {'type': 'remote', 'subType': checkType})
+        util.addCheck(self, name, {
+            'type': 'remote',
+            'subType': checkType,
+            'remoteId': remoteId
+        })
 
     def updateCheck(self, name, newName, config):
         """Update existing check to match new config"""
@@ -156,12 +163,17 @@ class FletchSite():
         ob = mclient.fromJson(message)
         if ob is not None and isinstance(ob, dict):
             name = defaults.getOpt('name', ob, str, None)
+            remoteId = None
+            if name in self.remotes:
+                remoteId = name
+                name = self.remotes[remoteId]
+                _log.debug('Using remoteId=%r for check %r', remoteId, name)
             checkType = defaults.getOpt('type', ob, str, None)
             data = defaults.getOpt('data', ob, dict, None)
             if name and checkType and data:
                 if name not in self.checks:
                     if self.mqttCfg['autoadd']:
-                        self.addRemote(name, checkType)
+                        self.addRemote(name, checkType, remoteId)
                 if name in self.checks and self.checks[
                         name].checkType == 'remote':
                     self.checks[name].remoteUpdate(checkType, data)
