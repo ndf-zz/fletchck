@@ -1,4 +1,0 @@
-Site address:	https://localhost:33145
-Admin password:	d4td2safgrw61r
-
-
