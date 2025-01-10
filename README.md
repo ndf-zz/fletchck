@@ -5,6 +5,7 @@ It provides a suite of simple internet service
 checks with flexible scheduling provided by
 [APScheduler](https://apscheduler.readthedocs.io/en/master/)
 and optional remote notification via MQTT.
+
 Service checks trigger notification actions
 as they transition from pass to fail or vice-versa.
 Configuration is via JSON file or an in-built web
@@ -16,6 +17,7 @@ The following checks are supported:
    - submit: SMTP-over-SSL/Submissions
    - imap: IMAP4-SSL mailbox
    - https: HTTP request
+   - dns: DNS query
    - cert: Check TLS certificate validity and/or expiry
    - ssh: SSH pre-auth connection with optional hostkey check
    - disk: Disk space check, fails when usage exceeds percentage
@@ -36,6 +38,7 @@ The following notification actions are supported:
    - sms: Post SMS via SMS Central API
    - mqtt: Publish a one-shot MQTT message to the configured broker
 
+
 ## Installation
 
 Create a python virtual env, and install from pypi using pip:
@@ -43,12 +46,16 @@ Create a python virtual env, and install from pypi using pip:
 	$ python3 -m venv --system-site-packages venv
 	$ ./venv/bin/pip3 install fletchck
 
+
 ## Setup
 
 Create a new empty site configuration in the current
 directory with the -init option:
 
 	$ ./venv/bin/fletchck -init
+
+Open a web browser with the displayed credentials to continue
+setup.
 
 
 ## Configuration
@@ -76,6 +83,7 @@ Notes:
    - Duplicate action and check names will overwrite earlier
      definitions with the same name.
    - Timezone should be a zoneinfo key or null to use host localtime
+
 
 ### Actions
 
@@ -115,6 +123,8 @@ trigger | dict | Trigger definition (see Scheduling below)
 threshold | int | Fail state reported after this many failed checks
 failAction | bool | Send notification action on transition to fail
 passAction | bool | Send notification action on transition to pass
+publish | str | MQTT topic to log check state to
+remoteId | str | Name of remote check if different to local check name
 options | dict | Dictionary of option names and values (see below)
 actions | list | List of notification action names
 depends | list | List of check names this check depends on
@@ -132,8 +142,10 @@ timezone | str | Timezone for schedule and notification
 selfsigned | bool | If set, TLS sessions will not validate service certificate
 tls | bool | (smtp) If set, call starttls to initiate TLS
 probe | str | (cert) send str probe to service after TLS negotiation
-reqType | str | (https) Request method: HEAD, GET, POST, PUT, DELETE, etc
+reqType | str | (https/dns) Request method: HEAD, GET, POST, TXT, SOA, AAAA, etc
 reqPath | str | (https) Request target resource
+reqName | str | (dns) Name to request from dns server
+reqTcp | bool | (dns) If true, use TCP
 hostkey | str | (ssh) Target service base64 encoded public key
 checks| list | (sequence) List of check names to be run in-turn
 volume | str | (disk) Path of disk volume to be checked
@@ -217,6 +229,7 @@ an sms, while service failures send an email.
 	 }
 	}
 
+
 ## Scheduling
 
 Job scheduling is managed by APScheduler. Each defined
@@ -233,6 +246,7 @@ A cron trigger with an explicit timezone:
 
 	cron 9-17 hr 20,40 min mon-fri weekday Australia/Adelaide z
 
+
 ### Interval
 
 The check is scheduled to be run at a repeating interval
@@ -248,6 +262,7 @@ For example, a trigger that runs every 10 minutes:
 
 Interval reference: [apscheduler.triggers.interval](https://apscheduler.readthedocs.io/en/3.x/modules/triggers/interval.html)
 
+
 ### Cron
 
 The configured check is triggered by UNIX cron style
@@ -261,6 +276,7 @@ and 45 minutes past the hour between 5am and 8pm every day:
 	}
 
 Cron reference: [apscheduler.triggers.cron](https://apscheduler.readthedocs.io/en/3.x/modules/triggers/cron.html)
+
 
 ## Web UI
 
@@ -277,6 +293,7 @@ port | int | port to listen on
 name | str | site name displayed on header
 base | str | path to configuration file
 users | dict | authorised usernames and hashed passwords
+
 
 ## MQTT
 
