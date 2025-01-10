@@ -2,7 +2,7 @@
 """Site defaults"""
 
 # Version String
-VERSION = '1.0.5'
+VERSION = '1.0.7'
 
 # Default application vanity label
 APPNAME = 'Fletchck'
@@ -87,6 +87,18 @@ CERTTIMEOUT = 5
 # TLS certificate expiry pre-failure in days
 CERTEXPIRYDAYS = 7
 
+# DNS hostname / server
+DNSHOSTNAME = '127.0.0.53'
+
+# DNS lifetime
+DNSTIMEOUT = 5
+
+# DNS Port
+DNSPORT = 53
+
+# DNS over TCP
+DNSTCP = False
+
 # Disk full threshold (percent)
 DISKLEVEL = 90
 
@@ -115,59 +127,68 @@ SENDMAIL = '/usr/lib/sendmail'
 HIDEOPTIONS = {
     'cert': {
         'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'reqType',
-        'reqPath', 'checks', 'tls', 'beeper', 'temperature', 'hysteresis'
+        'reqPath', 'checks', 'tls', 'beeper', 'temperature', 'hysteresis',
+        'reqTcp', 'reqName'
     },
     'submit': {
         'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
         'reqType', 'reqPath', 'checks', 'beeper', 'tls', 'temperature',
-        'hysteresis'
+        'hysteresis', 'reqTcp', 'reqName'
     },
     'smtp': {
         'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'beeper', 'temperature', 'hysteresis'
+        'reqType', 'reqPath', 'checks', 'beeper', 'temperature', 'hysteresis',
+        'reqTcp', 'reqName'
     },
     'imap': {
         'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
         'reqType', 'reqPath', 'checks', 'beeper', 'tls', 'temperature',
-        'hysteresis'
+        'hysteresis', 'reqTcp', 'reqName'
+    },
+    'dns': {
+        'remoteId', 'level', 'volume', 'serialPort', 'probe', 'hostkey',
+        'reqPath', 'checks', 'beeper', 'tls', 'temperature', 'hysteresis',
+        'selfsigned'
     },
     'https': {
         'remoteId', 'level', 'volume', 'serialPort', 'probe', 'hostkey',
-        'checks', 'beeper', 'tls', 'temperature', 'hysteresis'
+        'checks', 'beeper', 'tls', 'temperature', 'hysteresis', 'reqTcp',
+        'reqName'
     },
     'ssh': {
         'remoteId', 'level', 'volume', 'serialPort', 'probe', 'reqType',
         'reqPath', 'checks', 'selfsigned', 'tls', 'beeper', 'temperature',
-        'hysteresis'
+        'hysteresis', 'reqTcp', 'reqName'
     },
     'sequence': {
         'remoteId', 'level', 'volume', 'hostname', 'port', 'serialPort',
         'timeout', 'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned',
-        'tls', 'beeper', 'temperature', 'hysteresis'
+        'tls', 'beeper', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'remote': {
         'publish', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
         'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort',
-        'beeper', 'temperature', 'hysteresis'
+        'beeper', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'disk': {
         'remoteId', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
         'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'serialPort',
-        'beeper', 'temperature'
+        'beeper', 'temperature', 'reqTcp', 'reqName'
     },
     'temp': {
         'remoteId', 'hostkey', 'level', 'volume', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper'
+        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper',
+        'reqTcp', 'reqName'
     },
     'ups': {
         'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
         'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
-        'temperature', 'hysteresis'
+        'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'upstest': {
         'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
         'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
-        'temperature', 'hysteresis'
+        'temperature', 'hysteresis', 'reqTcp', 'reqName'
     }
 }
 

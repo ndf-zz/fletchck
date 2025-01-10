@@ -14,6 +14,10 @@ from threading import Lock
 from cryptography import x509
 from .ups import UpsQsV
 from shutil import disk_usage
+import dns.rdatatype
+import dns.name
+import dns.resolver
+import dns.reversename
 import ssl
 import socket
 try:
@@ -487,6 +491,46 @@ class certCheck(BaseCheck):
         return failState
 
 
+class dnsCheck(BaseCheck):
+    """DNS service check"""
+
+    def _runCheck(self):
+        hostname = self.getStrOpt('hostname', '127.0.0.53')
+        timeout = self.getIntOpt('timeout', defaults.DNSTIMEOUT)
+        port = self.getIntOpt('port', defaults.DNSPORT)
+        reqName = self.getStrOpt('reqName', 'org')
+        reqType = self.getStrOpt('reqType', 'soa')
+        reqTcp = self.getBoolOpt('reqTcp', defaults.DNSTCP)
+        failState = True
+
+        try:
+            reqType = dns.rdatatype.from_text(reqType)
+            if reqType is dns.rdatatype.PTR:
+                reqName = dns.reversename.from_address(reqName)
+            else:
+                reqName = dns.name.from_unicode(reqName)
+
+            a = dns.resolver.resolve_at(where=hostname,
+                                        qname=reqName,
+                                        rdtype=reqType,
+                                        port=port,
+                                        tcp=reqTcp,
+                                        lifetime=timeout)
+
+            self.log.append(
+                repr((str(reqName), reqType.name, ' '.join(
+                    (str(r) for r in a)))))
+            failState = False
+        except Exception as e:
+            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
+                       hostname, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, hostname,
+                   failState)
+        return failState
+
+
 class httpsCheck(BaseCheck):
     """HTTPS service check"""
 
@@ -942,3 +986,4 @@ CHECK_TYPES['upstest'] = upsTest
 CHECK_TYPES['remote'] = remoteCheck
 CHECK_TYPES['disk'] = diskCheck
 CHECK_TYPES['temp'] = tempCheck
+CHECK_TYPES['dns'] = dnsCheck

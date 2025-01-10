@@ -34,7 +34,7 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'disk', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -128,12 +128,17 @@
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqType') }}">
   <input type="text" class="form-control" name="reqType" id="reqType" placeholder="request type" value="{{ check.options['reqType'] if 'reqType' in check.options else '' }}">
-  <label for="reqType" class="form-label">Request method (https checks)</label>
+  <label for="reqType" class="form-label">Request method/type (https/dns checks)</label>
  </div>
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqPath') }}">
   <input type="text" class="form-control" name="reqPath" id="reqPath" placeholder="request path" value="{{ check.options['reqPath'] if 'reqPath' in check.options else '' }}">
   <label for="reqPath" class="form-label">Request path (https checks)</label>
+ </div>
+
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqName') }}">
+  <input type="text" class="form-control" name="reqName" id="reqName" placeholder="request path" value="{{ check.options['reqName'] if 'reqName' in check.options else '' }}">
+  <label for="reqName" class="form-label">Request name (dns checks)</label>
  </div>
 
  <div class="form-floating mb-3">
@@ -148,6 +153,10 @@
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
   <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
   <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
+ </div>
+ <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'reqTcp') }}">
+  <input class="form-check-input" type="checkbox" value="1" name="reqTcp" id="reqTcp" {{ 'checked' if 'reqTcp' in check.options and check.options['reqTcp'] else '' }}>
+  <label class="form-check-label" for="reqTcp">Use TCP (dns checks)</label>
  </div>
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'tls') }}">
   <input class="form-check-input" type="checkbox" value="1" name="tls" id="tls" {{ '' if 'tls' in check.options and not check.options['tls'] else 'checked' }}>

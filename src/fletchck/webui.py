@@ -246,6 +246,7 @@ class CheckHandler(BaseHandler):
                 'probe',
                 'reqType',
                 'reqPath',
+                'reqName',
                 'hostkey',
                 'volume',
         ]:
@@ -271,10 +272,13 @@ class CheckHandler(BaseHandler):
         temp = self.get_argument('beeper', None)
         if not temp:
             newConf['options']['beeper'] = False
-        # selfsigned is default off
+        # selfsigned/dnstcp is default off
         temp = self.get_argument('selfsigned', None)
         if temp:
             newConf['options']['selfsigned'] = True
+        temp = self.get_argument('reqTcp', None)
+        if temp:
+            newConf['options']['reqTcp'] = True
         temp = self.get_arguments('checks')
         if temp:
             newConf['options']['checks'] = []
