@@ -161,14 +161,16 @@ HIDEOPTIONS = {
         'hysteresis', 'reqTcp', 'reqName'
     },
     'sequence': {
-        'remoteId', 'level', 'volume', 'hostname', 'port', 'serialPort',
-        'timeout', 'hostkey', 'probe', 'reqType', 'reqPath', 'selfsigned',
-        'tls', 'beeper', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
+        'retries', 'remoteId', 'level', 'volume', 'hostname', 'port',
+        'serialPort', 'timeout', 'hostkey', 'probe', 'reqType', 'reqPath',
+        'selfsigned', 'tls', 'beeper', 'temperature', 'hysteresis', 'reqTcp',
+        'reqName'
     },
     'remote': {
-        'publish', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort',
-        'beeper', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
+        'retries', 'publish', 'level', 'volume', 'hostname', 'port', 'hostkey',
+        'probe', 'reqType', 'reqPath', 'checks', 'selfsigned', 'tls',
+        'serialPort', 'beeper', 'temperature', 'hysteresis', 'reqTcp',
+        'reqName'
     },
     'disk': {
         'remoteId', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
