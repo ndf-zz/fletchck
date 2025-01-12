@@ -366,13 +366,6 @@ class ActionsHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         testMsg = None
-        if 'email' not in self._site.actions:
-            self._site.addAction('email', {'type': 'email'})
-        if 'sms' not in self._site.actions:
-            self._site.addAction('sms', {'type': 'sms'})
-        if 'mqtt' not in self._site.actions:
-            self._site.addAction('mqtt', {'type': 'mqtt'})
-
         if self.get_argument('test', ''):
             _log.info('Sending test notifications')
             res = await tornado.ioloop.IOLoop.current().run_in_executor(
@@ -394,7 +387,6 @@ class ActionsHandler(BaseHandler):
         # transfer form data into options
         emailOptions = {}
         smsOptions = {}
-        mqttOptions = {}
 
         # list options
         nv = self.get_argument('email.recipients', '')
@@ -425,9 +417,6 @@ class ActionsHandler(BaseHandler):
             nv = self.get_argument('sms.' + key, '')
             if nv:
                 smsOptions[key] = nv
-            nv = self.get_argument('mqtt.' + key, '')
-            if nv:
-                mqttOptions[key] = nv
 
         # fallback is email only
         nv = self.get_argument('email.fallback', '')
@@ -442,14 +431,12 @@ class ActionsHandler(BaseHandler):
             nv = self.get_argument('sms.' + key, '')
             if nv:
                 smsOptions[key] = int(nv)
-            nv = self.get_argument('mqtt.' + key, '')
-            if nv:
-                mqttOptions[key] = int(nv)
 
         async with self._site._lock:
-            self._site.actions['email'].options = emailOptions
-            self._site.actions['sms'].options = smsOptions
-            self._site.actions['mqtt'].options = mqttOptions
+            if 'email' in self._site.actions:
+                self._site.actions['email'].options = emailOptions
+            if 'sms' in self._site.actions:
+                self._site.actions['sms'].options = smsOptions
             await tornado.ioloop.IOLoop.current().run_in_executor(
                 None, self._site.saveConfig)
         self.redirect('/actions')
@@ -512,7 +499,10 @@ def loadUi(site):
     app = Application(site)
     ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     ssl_ctx.load_cert_chain(site.webCfg['cert'], site.webCfg['key'])
+    port = site.webCfg['port']
+    if site.webUiPort is not None:
+        port = site.webUiPort
     srv = tornado.httpserver.HTTPServer(app, ssl_options=ssl_ctx)
-    srv.listen(site.webCfg['port'], address=site.webCfg['hostname'])
+    srv.listen(port, address=site.webCfg['hostname'])
     _log.info('Web UI listening on: https://%s:%s', site.webCfg['hostname'],
-              site.webCfg['port'])
+              port)

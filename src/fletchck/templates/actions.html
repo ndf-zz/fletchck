@@ -12,6 +12,7 @@
  <div id="formBody" class="bg-body-tertiary p-2 rounded">
  <form action="/actions" method="POST">
 
+ {% if 'email' in site.actions %}
  <h2>Email</h2>
  <div class="form-floating">
   <input type="text" class="form-control" name="email.recipients" id="email.recipients" placeholder="recipients" value="{{ ' '.join(site.actions['email'].options['recipients']) if 'recipients' in site.actions['email'].options else '' }}">
@@ -49,7 +50,8 @@
   <input type="number" class="form-control" name="email.timeout" id="email.timeout" placeholder="12" value="{{ site.actions['email'].options['timeout'] if 'timeout' in site.actions['email'].options else '' }}">
   <label for="email.timeout" class="form-label">Socket timeout (seconds)</label>
  </div>
-
+ {% end %}
+ {% if 'sms' in site.actions %}
  <h2>SMS</h2>
  <div class="form-floating">
   <input type="text" class="form-control" name="sms.recipients" id="sms.recipients" placeholder="recipients" value="{{ ' '.join(site.actions['sms'].options['recipients']) if 'recipients' in site.actions['sms'].options else '' }}">
@@ -75,29 +77,7 @@
   <input type="text" class="form-control" name="sms.url" id="sms.url" placeholder="url" value="{{ site.actions['sms'].options['url'] if 'url' in site.actions['sms'].options else '' }}">
   <label for="sms.url" class="form-label">API URL</label>
  </div>
-
- <h2>MQTT</h2>
- <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.topic" id="mqtt.topic" placeholder="topic" value="{{ site.actions['mqtt'].options['topic'] if 'topic' in site.actions['mqtt'].options else '' }}">
-  <label for="mqtt.topic" class="form-label">Base Topic</label>
- </div>
- <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.hostname" id="mqtt.hostname" placeholder="hostname" value="{{ site.actions['mqtt'].options['hostname'] if 'hostname' in site.actions['mqtt'].options else '' }}">
-  <label for="mqtt.hostname" class="form-label">Broker Hostname</label>
- </div>
- <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.username" id="mqtt.username" placeholder="username" value="{{ site.actions['mqtt'].options['username'] if 'username' in site.actions['mqtt'].options else '' }}">
-  <label for="mqtt.username" class="form-label">Username</label>
- </div>
- <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.password" id="mqtt.password" placeholder="password" value="{{ site.actions['mqtt'].options['password'] if 'password' in site.actions['mqtt'].options else '' }}">
-  <label for="mqtt.password" class="form-label">Password</label>
- </div>
- <div class="form-floating">
-  <input type="number" class="form-control" name="mqtt.port" id="mqtt.port" placeholder="12345" value="{{ site.actions['mqtt'].options['port'] if 'port' in site.actions['mqtt'].options else '' }}">
-  <label for="mqtt.port" class="form-label">Port</label>
- </div>
-
+ {% end %}
  <button class="btn btn-primary py-2 mb-3" type="submit">Update</button>
  </form>
  </div>

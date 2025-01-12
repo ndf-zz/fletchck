@@ -9,8 +9,6 @@ from smtplib import SMTP_SSL
 from email.mime.text import MIMEText
 from email.utils import make_msgid, formatdate
 from subprocess import run
-from paho.mqtt.client import MQTTv5
-from paho.mqtt.publish import single as publish
 import json
 
 import ssl
@@ -71,49 +69,6 @@ class BaseAction():
     def flatten(self):
         """Return the action detail as a flattened dictionary"""
         return {'type': self.actionType, 'options': self.options}
-
-
-class publishMsg(BaseAction):
-    """Publish single message to MQTT broker"""
-
-    def _notify(self, source):
-        ret = True
-        basetopic = self.getStrOpt('topic')
-        if basetopic is not None:
-            # todo: sanitise source name?
-            topic = basetopic + '/' + source.name.replace('/', '')
-            hostname = self.getStrOpt('hostname')
-            port = self.getIntOpt('port', 8883)
-            username = self.getStrOpt('username')
-            password = self.getStrOpt('password')
-            auth = None
-            if username or password:
-                auth = {'username': username, 'password': password}
-            usetls = self.getBoolOpt('usetls', True)
-            msg = json.dumps(source.msgObj())
-            _log.debug('Publish msg to %r via %r : %r', topic, hostname, msg)
-
-            ret = False
-            try:
-                ctx = None
-                if usetls:
-                    ctx = ssl.create_default_context()
-                publish(topic=topic,
-                        payload=msg,
-                        qos=1,
-                        retain=True,
-                        hostname=hostname,
-                        port=port,
-                        auth=auth,
-                        tls=ctx,
-                        protocol=MQTTv5)
-                ret = True
-            except Exception as e:
-                _log.warning('MQTT publish notify failed: %s', e)
-
-        else:
-            _log.warning('MQTT publish notify not configured')
-        return ret
 
 
 class sendEmail(BaseAction):
@@ -253,65 +208,5 @@ class ckSms(BaseAction):
         return not recipients
 
 
-class apiSms(BaseAction):
-    """Post SMS via smscentral api"""
-
-    def trigger(self, source):
-        message = '%s: %s\n%s\n%s'
-        if source.failState:
-            message = message % (
-                source.name,
-                source.getState(),
-                source.getSummary(),
-                source.lastFail,
-            )
-        else:
-            message = message % (
-                source.name,
-                source.getState(),
-                '\U0001f436\U0001F44D',
-                source.lastPass,
-            )
-        sender = self.getStrOpt('sender', 'dedicated')
-        recipients = [i for i in self.getListOpt('recipients', [])]
-        username = self.getStrOpt('username')
-        password = self.getStrOpt('password')
-        url = self.getStrOpt('url', defaults.SMSCENTRALURL)
-
-        httpClient = HTTPClient()
-        failCount = 0
-        while recipients and failCount < defaults.ACTIONTRIES:
-            recipient = recipients[0]
-            _log.debug('Send sms to %r via %r : %r', recipient, url, message)
-            postBody = urlencode({
-                'ACTION': 'send',
-                'USERNAME': username,
-                'PASSWORD': password,
-                'ORIGINATOR': sender,
-                'RECIPIENT': recipient,
-                'MESSAGE_TEXT': message
-            })
-            try:
-                response = httpClient.fetch(
-                    url,
-                    method='POST',
-                    headers={
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body=postBody)
-                if response.body == b'0':
-                    recipients.pop(0)
-                else:
-                    failCount += 1
-                    _log.warning('SMS Notify failed: %r:%r', response.code,
-                                 response.body)
-            except Exception as e:
-                failCount += 1
-                _log.warning('SMS Notify failed: %s', e)
-        return not recipients
-
-
 ACTION_TYPES['email'] = sendEmail
-ACTION_TYPES['sms'] = apiSms
 ACTION_TYPES['cksms'] = ckSms
-ACTION_TYPES['mqtt'] = publishMsg

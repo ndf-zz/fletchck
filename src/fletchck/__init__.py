@@ -18,6 +18,8 @@ _log.setLevel(DEBUG)
 # Command line options
 define("config", default=None, help="specify site config file", type=str)
 define("init", default=False, help="re-initialise system", type=bool)
+define("port", default=None, help="specify webui listen port", type=int)
+define("merge", default=None, help="merge config from file", type=str)
 define("webui", default=True, help="run web ui", type=bool)
 
 
@@ -33,6 +35,7 @@ class FletchSite():
         self.timezone = None
         self.configFile = defaults.CONFIGPATH
         self.doWebUi = True
+        self.webUiPort = None
         self.log = []
 
         self.scheduler = None
@@ -65,16 +68,12 @@ class FletchSite():
         fakeCheck.timezone = self.timezone
         fakeCheck.lastPass = util.check.timeString(self.timezone)
         fakeCheck.log = ['Testing action notification', '...']
-        emailOK = False
-        if 'email' in self.actions:
-            emailOK = self.actions['email'].trigger(fakeCheck)
-        smsOK = False
-        if 'sms' in self.actions:
-            smsOK = self.actions['sms'].trigger(fakeCheck)
-        mqttOK = False
-        if 'mqtt' in self.actions:
-            mqttOK = self.actions['mqtt'].trigger(fakeCheck)
-        return emailOK and smsOK and mqttOK
+        ret = True
+        for action in self.actions:
+            _log.warning('Calling trigger on %r', action)
+            if not self.actions[action].trigger(fakeCheck):
+                ret = False
+        return ret
 
     def addAction(self, name, config):
         """Add the named action to site"""
@@ -139,6 +138,7 @@ class FletchSite():
 
     def selectConfig(self):
         """Check command line and choose configuration"""
+        doStart = True
         parse_command_line()
         if options.config is not None:
             # specify a desired configuration path
@@ -147,13 +147,20 @@ class FletchSite():
         if not options.webui:
             _log.info('Web UI disabled by command line option')
             self.doWebUi = False
+        if options.port:
+            if isinstance(options.port, int):
+                self.webUiPort = max(min(options.port, 65535), 1)
+                if options.port != self.webUiPort:
+                    _log.warning('Invalid port clamped to %d', self.webUiPort)
+            else:
+                _log.warning('Ignored invalid web UI port')
         if options.init:
-            # (re)init site from current base directory
-            if not util.initSite(self.base, self.doWebUi):
-                return False
+            doStart = util.initSite(self.base, self.doWebUi, self.webUiPort)
         if self.configFile is None:
             self.configFile = defaults.CONFIGPATH
-        return True
+        if options.merge:
+            util.mergeConfig(self.base, self.configFile, options.merge)
+        return doStart
 
     def getTrigger(self, check):
         return util.trigger2Text(check.trigger)

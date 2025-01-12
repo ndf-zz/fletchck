@@ -115,7 +115,7 @@ def mac2ll(macaddr):
             leui48 & 0xffffff000000) << 16 | leui48 & 0xffffff
         addr = ipaddress.IPv6Address(llval)
         ret = str(addr)
-    except Exception:
+    except Exception as e:
         _log.info('Invalid MAC address %s: %s', e.__class__.__name__, e)
     return ret
 
@@ -279,20 +279,116 @@ def saveSite(site):
     _log.debug('Saved site config to %r', site.configFile)
 
 
-def initSite(path, webUi=True):
-    """Prepare a new empty site under path, returns True to continue"""
-    if not sys.stdin.isatty():
-        _log.error('Init requires user input - exiting')
-        return False
+def mergeConfig(path, config, option):
+    """Merge selected values from option into config."""
+    importFilename = os.path.realpath(option)
+    cfgFilename = os.path.join(path, config)
+    if os.path.samefile(cfgFilename, importFilename):
+        _log.warning('Ignored import from existing config')
+        return
+    if os.path.exists(importFilename):
+        _log.info('Importing config from %r', importFilename)
+        try:
+            doSave = False
+            importConf = None
+            with open(importFilename) as f:
+                importConf = json.load(f)
+            cfgConf = None
+            with open(cfgFilename) as f:
+                cfgConf = json.load(f)
+            if 'timezone' in importConf:
+                _log.info('Imported timezone')
+                cfgConf['timezone'] = importConf['timezone']
+                doSave = True
+            if 'webui' in importConf and importConf['webui'] is not None:
+                if 'webui' not in cfgConf or not isinstance(
+                        cfgConf['webui'], dict):
+                    cfgConf['webui'] = {}
+                dst = cfgConf['webui']
+                src = importConf['webui']
+                for key in src:
+                    if key == 'users':
+                        if 'users' not in dst or not isinstance(
+                                dst['users'], dict):
+                            dst['users'] = {}
+                        for user in src['users']:
+                            if user == 'admin' and 'admin' in dst['users']:
+                                _log.warning('Admin user not updated')
+                            else:
+                                dst['users'][user] = src['users'][user]
+                    else:
+                        dst[key] = src[key]
+                _log.info('Imported webui config')
+                doSave = True
+            if 'mqtt' in importConf:
+                if 'mqtt' not in cfgConf:
+                    cfgConf['mqtt'] = {}
+                dest = cfgConf['mqtt']
+                src = importConf['mqtt']
+                for key in src:
+                    dst[key] = src[key]
+                _log.info('Imported mqtt config')
+                doSave = True
+            if 'actions' in importConf:
+                for action in importConf['actions']:
+                    if action not in cfgConf['actions']:
+                        cfgConf['actions'][action] = {}
+                    destAction = cfgConf['actions'][action]
+                    srcAction = importConf['actions'][action]
+                    if 'type' in srcAction:
+                        destAction['type'] = srcAction['type']
+                    if 'options' in srcAction:
+                        if 'options' not in destAction:
+                            destAction['options'] = {}
+                        for key in srcAction['options']:
+                            destAction['options'][key] = srcAction['options'][
+                                key]
+                    _log.info('Imported action: %s', action)
+                    doSave = True
+            if 'checks' in importConf:
+                for check in importConf['checks']:
+                    if check not in cfgConf['checks']:
+                        cfgConf['checks'][check] = {}
+                    destCheck = cfgConf['checks'][check]
+                    srcCheck = importConf['checks'][check]
+                    for key in srcCheck:
+                        if key != 'data':
+                            destCheck[key] = srcCheck[key]
+                    _log.info('Imported check: %s', check)
+                    doSave = True
 
+            if doSave:
+                _log.info('Saving updated config')
+                tmpName = None
+                if os.path.exists(cfgFilename):
+                    tmpName = cfgFilename + token_hex(6)
+                    os.link(cfgFilename, tmpName)
+                with SaveFile(cfgFilename) as f:
+                    json.dump(cfgConf, f, indent=1)
+                if tmpName is not None:
+                    os.rename(tmpName, cfgFilename + '.bak')
+            else:
+                _log.warning('No updates imported')
+
+        except Exception as e:
+            _log.warning('Ignored invalid import, %s: %s',
+                         e.__class__.__name__, e)
+    else:
+        _log.warning('Import file not found, ignored')
+
+
+def initSite(path, webUi=True, webPort=None):
+    """Prepare a new empty site under path, returns True to continue"""
     cfgPath = os.path.realpath(path)
     cfgFile = os.path.join(cfgPath, defaults.CONFIGPATH)
     backup = False
 
     # check for an existing config
     if os.path.exists(cfgFile):
-        prompt = 'Replace existing site? (y/N) '
-        choice = input(prompt)
+        choice = None
+        if sys.stdin.isatty():
+            prompt = 'Replace existing site? (y/N) '
+            choice = input(prompt)
         if not choice or choice.lower()[0] != 'y':
             _log.error('Existing site not overwritten')
             return False
@@ -303,7 +399,10 @@ def initSite(path, webUi=True):
     siteCfg['timezone'] = defaults.TIMEZONE
     if webUi:
         siteCfg['webui'] = dict(defaults.WEBUICONFIG)
-        siteCfg['webui']['port'] = 30000 + randbits(15)
+        if webPort is not None:
+            siteCfg['webui']['por'] = max(min(webPort, 65535), 1)
+        else:
+            siteCfg['webui']['port'] = 30000 + randbits(15)
         mkCert(cfgPath, siteCfg['webui']['hostname'])
         siteCfg['webui']['cert'] = os.path.join(cfgPath, defaults.SSLCERT)
         siteCfg['webui']['key'] = os.path.join(cfgPath, defaults.SSLKEY)
@@ -317,18 +416,8 @@ def initSite(path, webUi=True):
     else:
         siteCfg['webui'] = None
 
-    # Add the basic actions and an empty set of checks
-    siteCfg['actions'] = {
-        'email': {
-            'type': 'email'
-        },
-        'sms': {
-            'type': 'sms'
-        },
-        'mqtt': {
-            'type': 'mqtt'
-        }
-    }
+    # Add a basic action template and an empty set of checks
+    siteCfg['actions'] = {'email': {'type': 'email'}}
     fallback = None
     if os.path.exists(defaults.SENDMAIL):
         fallback = defaults.SENDMAIL
@@ -353,10 +442,13 @@ def initSite(path, webUi=True):
             (siteCfg['webui']['hostname'], siteCfg['webui']['port'], adminPw))
     else:
         print('\nConfigured without web interface.\n')
-    choice = input('Start? (Y/n) ')
-    if choice and choice.lower()[0] == 'n':
-        return False
-    return True
+    if sys.stdin.isatty():
+        choice = input('Start? (Y/n) ')
+        if choice and choice.lower()[0] == 'n':
+            return False
+        else:
+            return True
+    return False
 
 
 def updateCheck(site, oldName, newName, config):
