@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 """Machine check classes"""
 
-from datetime import datetime
+from datetime import datetime, UTC
 from zoneinfo import ZoneInfo
 from dateutil.parser import parse as dateparse
 from . import defaults
@@ -26,7 +26,7 @@ except ImportError:
     import xml.etree.ElementTree as etree
 
 _log = getLogger('fletchck.check')
-_log.setLevel(INFO)
+_log.setLevel(DEBUG)
 getLogger('paramiko.transport').setLevel(INFO)
 
 CHECK_TYPES = {}
@@ -63,7 +63,7 @@ def certExpiry(cert):
     """Raise SSL certificate error if about to expire"""
     if cert is not None and 'notAfter' in cert:
         expiry = ssl.cert_time_to_seconds(cert['notAfter'])
-        nowsecs = datetime.now().timestamp()
+        nowsecs = datetime.now(UTC).timestamp()
         daysLeft = (expiry - nowsecs) // 86400
         _log.debug('Certificate %r expiry %r: %d days', cert['subject'],
                    cert['notAfter'], daysLeft)
@@ -214,7 +214,7 @@ class BaseCheck():
         self.oldLog = self.log
         self.log = []
         count = 0
-        while count < self.retries:
+        while count < self.retries and self.softFail is None:
             count += 1
             if count > 1:
                 _log.info('%s (%s): Retrying %d/%d', self.name, self.checkType,
@@ -361,6 +361,8 @@ class submitCheck(BaseCheck):
                 self.log.append(repr(s.noop()))
                 self.log.append(repr(s.quit()))
         except Exception as e:
+            if isinstance(e, ssl.SSLCertVerificationError):
+                self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
@@ -395,6 +397,8 @@ class smtpCheck(BaseCheck):
                 self.log.append(repr(s.noop()))
                 self.log.append(repr(s.quit()))
         except Exception as e:
+            if isinstance(e, ssl.SSLCertVerificationError):
+                self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
@@ -428,6 +432,8 @@ class imapCheck(BaseCheck):
                 self.log.append(repr(i.logout()))
                 failState = False
         except Exception as e:
+            if isinstance(e, ssl.SSLCertVerificationError):
+                self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
@@ -453,9 +459,9 @@ class certCheck(BaseCheck):
             if not selfsigned:
                 # do full TLS negotiation
                 ctx = ssl.create_default_context()
-                sock = socket.create_connection((hostname, port),
-                                                timeout=timeout)
-                conn = ctx.wrap_socket(sock, server_hostname=hostname)
+                conn = ctx.wrap_socket(socket.create_connection(
+                    (hostname, port), timeout=timeout),
+                                       server_hostname=hostname)
                 certExpiry(conn.getpeercert())
                 if probe is not None:
                     self.log.append(
@@ -465,16 +471,16 @@ class certCheck(BaseCheck):
                 conn.shutdown(socket.SHUT_RDWR)
                 conn.close()
             else:
+                # check expiry
                 pemCert = ssl.get_server_certificate(addr=(hostname, port))
-                #pemCert = ssl.get_server_certificate(addr=(hostname, port), timeout=timeout)
+                # timeout=timeout)  # timeout added in python3.10
                 cert = x509.load_pem_x509_certificate(pemCert.encode('ascii'))
-                expiry = cert.not_valid_after.timestamp()
-                nowsecs = datetime.now().timestamp()
-                daysLeft = (expiry - nowsecs) // 86400
+                expiry = cert.not_valid_after_utc
+                remain = expiry - datetime.now(UTC)
+                daysLeft = int(remain.total_seconds() // 86400)
                 self.level = '%d days' % (daysLeft, )
                 _log.debug('Certificate %r expiry %r: %d days', hostname,
-                           cert.not_valid_after.astimezone().isoformat(),
-                           daysLeft)
+                           expiry.astimezone().isoformat(), daysLeft)
                 if daysLeft < defaults.CERTEXPIRYDAYS:
                     raise ssl.SSLCertVerificationError(
                         'Certificate expires in %d days' % (daysLeft))
@@ -482,9 +488,12 @@ class certCheck(BaseCheck):
                            self.checkType, hostname)
             failState = False
         except Exception as e:
+            if isinstance(e, ssl.SSLCertVerificationError):
+                self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+            raise
 
         _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, hostname,
                    failState)
@@ -522,6 +531,8 @@ class dnsCheck(BaseCheck):
                     (str(r) for r in a)))))
             failState = False
         except Exception as e:
+            if isinstance(e, ssl.SSLCertVerificationError):
+                self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
@@ -558,6 +569,8 @@ class httpsCheck(BaseCheck):
             self.log.append(repr((r.status, r.headers.as_string())))
             failState = False
         except Exception as e:
+            if isinstance(e, ssl.SSLCertVerificationError):
+                self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
@@ -578,22 +591,23 @@ class sshCheck(BaseCheck):
 
         failState = True
         try:
-            with socket.create_connection((hostname, port),
-                                          timeout=timeout) as s:
-                t = SSH(s)
-                t.start_client(timeout=timeout)
-                hk = t.get_remote_server_key().get_base64()
-                self.log.append('%s:%d %r' % (hostname, port, hk))
-                if hostkey is not None and hostkey != hk:
-                    raise ValueError('Invalid host key')
-                elif hostkey is None:
-                    _log.info('%s (%s) %s: Adding hostkey=%s', self.name,
-                              self.checkType, hostname, hk)
-                    self.options['hostkey'] = hk
-                self.log.append('ignore: %r' % (t.send_ignore()))
-                self.log.append('close: %r' % (t.close()))
-                failState = False
+            t = SSH(socket.create_connection((hostname, port),
+                                             timeout=timeout))
+            t.start_client(timeout=timeout)
+            hk = t.get_remote_server_key().get_base64()
+            self.log.append('%s:%d %r' % (hostname, port, hk))
+            if hostkey is not None and hostkey != hk:
+                raise ValueError('Invalid host key')
+            elif hostkey is None:
+                _log.info('%s (%s) %s: Adding hostkey=%s', self.name,
+                          self.checkType, hostname, hk)
+                self.options['hostkey'] = hk
+            self.log.append('ignore: %r' % (t.send_ignore()))
+            self.log.append('close: %r' % (t.close()))
+            failState = False
         except Exception as e:
+            if isinstance(e, ValueError):
+                self.softFail = 'hostkey'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
