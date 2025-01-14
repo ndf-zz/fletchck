@@ -239,9 +239,21 @@ class CheckHandler(BaseHandler):
         else:
             newConf['remoteId'] = None
         newConf['options'] = {}
+        # hostname/ip
+        temp = self.get_argument('hostname', '')
+        if temp:
+            if util.isMacAddr(temp):
+                # assume EUI-64 LL address desired
+                temp = util.mac2ll(temp)
+            elif ':' in temp:
+                # assume ipv6 - check for LL without scope
+                temp = util.lladdscope(temp)
+            else:
+                # probably hostname or v4
+                pass
+            newConf['options']['hostname'] = temp
         # string options
         for key in [
-                'hostname',
                 'serialPort',
                 'probe',
                 'reqType',

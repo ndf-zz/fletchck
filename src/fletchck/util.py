@@ -2,6 +2,7 @@
 """Application support utilities"""
 
 import os
+import re
 import sys
 import json
 import struct
@@ -11,6 +12,7 @@ from passlib.hash import argon2 as kdf
 from tempfile import NamedTemporaryFile, mkdtemp
 from logging import getLogger, Handler, DEBUG, INFO, WARNING
 from subprocess import run
+from ipaddress import IPv6Address
 from . import action
 from . import check
 from . import defaults
@@ -106,15 +108,33 @@ class LogHandler(Handler):
             del (self.site.log[0:10])
 
 
-def mac2ll(macaddr):
-    """Convert MAC address to IPv6 Link Local address"""
-    ret = None
+def isMacAddr(hostname):
+    """Return true if hostname looks like a MAC address"""
+    return re.match('^[\dA-Fa-f]{2}(:[\dA-Fa-f]{2}){5}$', hostname) is not None
+
+
+def lladdscope(address):
+    """Append interface 2 to LL address if scope not provided"""
+    ret = address
     try:
-        leui48 = int(macaddr.replace(':', ''), 16) | 1 << 41
-        llval = 0xfe80 << 112 | 0xfffe << 24 | (
-            leui48 & 0xffffff000000) << 16 | leui48 & 0xffffff
-        addr = ipaddress.IPv6Address(llval)
-        ret = str(addr)
+        va = IPv6Address(address)
+        if va.is_link_local and va.scope_id is None:
+            ret = '%s%%2' % (va, )
+    except Exception as e:
+        _log.info('Invalid ipv6 address %s: %s', e.__class__.__name__, e)
+    return ret
+
+
+def mac2ll(macaddr, interface='2'):
+    """Convert MAC address to EUI-64 link-local addr on interface 2"""
+    ret = macaddr
+    try:
+        if isMacAddr(macaddr):
+            leui48 = int(macaddr.replace(':', ''), 16) | 1 << 41
+            llval = 0xfe80 << 112 | 0xfffe << 24 | (
+                leui48 & 0xffffff000000) << 16 | leui48 & 0xffffff
+            ##addr = IPv6Address(llval)
+            ret = '%s%%%s' % (IPv6Address(llval), interface)
     except Exception as e:
         _log.info('Invalid MAC address %s: %s', e.__class__.__name__, e)
     return ret
