@@ -343,7 +343,7 @@ def mergeConfig(path, config, option):
             if 'mqtt' in importConf:
                 if 'mqtt' not in cfgConf:
                     cfgConf['mqtt'] = {}
-                dest = cfgConf['mqtt']
+                dst = cfgConf['mqtt']
                 src = importConf['mqtt']
                 for key in src:
                     dst[key] = src[key]

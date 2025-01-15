@@ -212,16 +212,19 @@ class BaseCheck():
                 return True
 
         self.oldLog = self.log
-        self.log = []
         count = 0
         while count < self.retries and self.softFail is None:
+            self.log = []
             count += 1
             if count > 1:
+                self.log.append('Retry %d/%d' % (count, self.retries))
                 _log.info('%s (%s): Retrying %d/%d', self.name, self.checkType,
                           count, self.retries)
             curFail = self._runCheck()
             if not curFail:
                 break
+        if count > 1 and curFail:
+            self.log.append('Failed after %d tries' % (count, ))
 
         _log.info(
             '%s (%s): %s curFail=%r prevFail=%r failCount=%r level=%r %s',
@@ -493,7 +496,6 @@ class certCheck(BaseCheck):
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
                        hostname, e.__class__.__name__, e, self.log)
             self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
-            raise
 
         _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, hostname,
                    failState)
@@ -976,7 +978,11 @@ class sequenceCheck(BaseCheck):
                 self.log.extend(c.log)
                 self.log.append('')
             else:
-                self.log.append('%s (%s): %s' % (c.name, c.checkType, cMsg))
+                lExtra = ''
+                if c.level is not None:
+                    lExtra = ' ' + c.level
+                self.log.append('%s (%s): %s%s' %
+                                (c.name, c.checkType, cMsg, lExtra))
 
         _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failChecks)
 

@@ -3,6 +3,12 @@
  {% if check and oldName %}
   <h2 class="my-3">{{ oldName }} ({{ check.checkType }}): {{ check.getState() }}</h2>
   <ul>
+   {% if check.checkType != 'sequence' and status['inseqs'][oldName] %}
+   <li>In Sequence: 
+   {% for seqName in status['inseqs'][oldName] %}
+   <a href="/check/{{ site.pathQuote(seqName) }}">{{ seqName }}</a>
+   {% end %}</li>
+   {% end %}
    <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
    <li>Last Fail: {{ check.lastFail }}</li>
    <li>Last Pass: {{ check.lastPass }}</li>

@@ -197,12 +197,34 @@ class FletchSite():
             self._mqtt.publish_json(topic=topic, obj=obj)
 
     def getStatus(self):
-        status = {'fail': False, 'info': None, 'checks': {}}
+        status = {
+            'fail': False,
+            'info': None,
+            'checks': {},
+            'seqs': {},
+            'inseqs': {}
+        }
+        for checkName in self.checks:
+            if checkName not in status['inseqs']:
+                status['inseqs'][checkName] = []
+            check = self.checks[checkName]
+            if check.checkType == 'sequence':
+                status['seqs'][checkName] = {}
+                for subCheck in check.checks:
+                    status['seqs'][checkName][subCheck] = 1
+                    if subCheck not in status['inseqs']:
+                        status['inseqs'][subCheck] = []
+                    status['inseqs'][subCheck].append(checkName)
+
         failCount = 0
+        failCounted = set()
         for checkName in self.sortedChecks():
             check = self.checks[checkName]
             if check.failState:
-                failCount += 1
+                if check.checkType != 'sequence':
+                    if checkName not in failCounted:
+                        failCount += 1
+                    failCounted.add(checkName)
                 status['fail'] = True
             status['checks'][checkName] = {
                 'checkType': check.checkType,
@@ -212,9 +234,20 @@ class FletchSite():
                 'lastFail': check.lastFail if check.lastFail else '',
                 'lastPass': check.lastPass if check.lastPass else ''
             }
+        # re-scan all checks for sequences with failing checks
+        # which have not been updated in the sequence itself
+        for checkName in self.checks:
+            check = self.checks[checkName]
+            if check.checkType != 'sequence' and check.failState:
+                if checkName in status['inseqs']:
+                    for seqName in status['inseqs'][checkName]:
+                        if not status['checks'][seqName]['failState']:
+                            _log.debug('Sequence %s with failing check: %s',
+                                       seqName, checkName)
+                            status['checks'][seqName]['failState'] = 'DEP'
         if failCount > 0:
             status['info'] = '%d check%s in fail state' % (
-                failCount, 's' if failCount > 1 else '')
+                failCount, 's' if failCount != 1 else '')
         return status
 
     async def run(self):

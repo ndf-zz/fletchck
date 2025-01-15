@@ -91,6 +91,7 @@ class Application(tornado.web.Application):
     def __init__(self, site):
         handlers = [
             (r"/", HomeHandler, dict(site=site)),
+            (r"/checks", ChecksHandler, dict(site=site)),
             (r"/check/(.*)", CheckHandler, dict(site=site)),
             (r"/actions", ActionsHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
@@ -137,6 +138,7 @@ class BaseHandler(tornado.web.RequestHandler):
 
 
 class HomeHandler(BaseHandler):
+    """Site landing page."""
 
     @tornado.web.authenticated
     async def get(self):
@@ -144,10 +146,11 @@ class HomeHandler(BaseHandler):
         self.render("home.html",
                     site=self._site,
                     status=status,
-                    section='check')
+                    section='home')
 
 
 class LogHandler(BaseHandler):
+    """View of site logs."""
 
     @tornado.web.authenticated
     async def get(self):
@@ -158,7 +161,20 @@ class LogHandler(BaseHandler):
         self.render("log.html", site=self._site, status=status, section='log')
 
 
+class ChecksHandler(BaseHandler):
+    """List of defined checks."""
+
+    @tornado.web.authenticated
+    async def get(self):
+        status = self._site.getStatus()
+        self.render("checks.html",
+                    site=self._site,
+                    status=status,
+                    section='check')
+
+
 class CheckHandler(BaseHandler):
+    """Check editor."""
 
     @tornado.web.authenticated
     async def get(self, path):
@@ -169,7 +185,7 @@ class CheckHandler(BaseHandler):
                 if self.get_argument('delete', ''):
                     _log.info('Deleting %s without undo', path)
                     self._site.deleteCheck(path)
-                    self.redirect('/')
+                    self.redirect('/checks')
                     return
                 elif self.get_argument('run', ''):
                     _log.warning('Manually running %s', path)
@@ -370,7 +386,7 @@ class CheckHandler(BaseHandler):
         if path:
             self.redirect('/check/' + self._site.pathQuote(checkName))
         else:
-            self.redirect('/')
+            self.redirect('/checks')
 
 
 class ActionsHandler(BaseHandler):
