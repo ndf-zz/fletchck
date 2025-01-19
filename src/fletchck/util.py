@@ -621,14 +621,11 @@ def reorderSite(site, checkName, mode):
                     for dep in check.depends:
                         if dep in map[seqName]:
                             maxPri = max(check.depends[dep].priority, maxPri)
-                            _log.debug('Max priorty depends = %d, own=%d',
-                                       maxPri, check.priority)
-                            if check.priority <= maxPri:
-                                _log.debug('Adjusted priority on %s %d->%d',
-                                           checkName, check.priority,
-                                           maxPri + 1)
-                                check.priority = maxPri + 1
-                                reMap = True
+                    if check.priority <= maxPri:
+                        _log.debug('Adjusted priority on %s %d->%d', checkName,
+                                   check.priority, maxPri + 1)
+                        check.priority = maxPri + 1
+                        reMap = True
                     break
         if reMap:
             map = site.checkMap(True)
