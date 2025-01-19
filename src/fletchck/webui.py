@@ -13,7 +13,7 @@ from . import util
 from logging import getLogger, DEBUG, INFO, WARNING
 
 _log = getLogger('fletchck.webui')
-_log.setLevel(INFO)
+_log.setLevel(DEBUG)
 
 
 class PackageLoader(tornado.template.BaseLoader):
@@ -93,6 +93,7 @@ class Application(tornado.web.Application):
             (r"/", HomeHandler, dict(site=site)),
             (r"/checks", ChecksHandler, dict(site=site)),
             (r"/check/(.*)", CheckHandler, dict(site=site)),
+            (r"/move/(.*)", MoveHandler, dict(site=site)),
             (r"/actions", ActionsHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
             (r"/log", LogHandler, dict(site=site)),
@@ -173,6 +174,31 @@ class ChecksHandler(BaseHandler):
                     section='check')
 
 
+class MoveHandler(BaseHandler):
+    """Check reordering handler."""
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        check = None
+        if path:
+            if path in self._site.checks:
+                checkName = path
+                mode = self.get_argument('m', 'down')
+                if mode in ('down', 'up'):
+                    if util.reorderSite(self._site, checkName, mode):
+                        # save out config
+                        await tornado.ioloop.IOLoop.current().run_in_executor(
+                            None, self._site.saveConfig)
+                else:
+                    _log.warning('Ignored invalid mode mode')
+                self.redirect('/checks')
+                return
+            else:
+                raise tornado.web.HTTPError(404)
+        self.redirect('/checks')
+        return
+
+
 class CheckHandler(BaseHandler):
     """Check editor."""
 
@@ -182,16 +208,22 @@ class CheckHandler(BaseHandler):
         if path:
             if path in self._site.checks:
                 check = self._site.checks[path]
+                runopt = self.get_argument('run', '')
                 if self.get_argument('delete', ''):
                     _log.info('Deleting %s without undo', path)
                     self._site.deleteCheck(path)
                     self.redirect('/checks')
                     return
-                elif self.get_argument('run', ''):
+                elif runopt:
                     _log.warning('Manually running %s', path)
                     await tornado.ioloop.IOLoop.current().run_in_executor(
                         None, self._site.runCheck, path)
-                    self.redirect('/check/' + self._site.pathQuote(path))
+                    retpath = '/check/' + self._site.pathQuote(path)
+                    if runopt == 'list':
+                        retpath = '/checks'
+                    elif runopt == 'home':
+                        retpath = '/'
+                    self.redirect(retpath)
                     return
             else:
                 raise tornado.web.HTTPError(404)
@@ -199,7 +231,7 @@ class CheckHandler(BaseHandler):
             check = util.check.loadCheck(name='',
                                          config={'type': 'ssh'},
                                          timezone=self._site.timezone)
-            check.priority = len(self._site.checks)
+            check.priority = 100 * len(self._site.checks)
         status = self._site.getStatus()
         self.render("check.html",
                     status=status,
@@ -240,8 +272,8 @@ class CheckHandler(BaseHandler):
             newConf['priority'] = int(temp)
         else:
             if not path:
-                # give new checks a reasonable default ordering
-                newConf['priority'] = len(self._site.checks)
+                # give new checks a default ordering > worst case: all seqs
+                newConf['priority'] = 100 * len(self._site.checks)
         newConf['passAction'] = bool(self.get_argument('passAction', None))
         newConf['failAction'] = bool(self.get_argument('failAction', None))
         ptopic = self.get_argument('publish', None)
@@ -333,10 +365,12 @@ class CheckHandler(BaseHandler):
                     check.add_action(self._site.actions[action])
                 else:
                     formErrors.append('Invalid action %r' % (action))
+        dependReorder = False
         for depend in newConf['depends']:
             if depend:
                 if depend in self._site.checks:
                     check.add_depend(self._site.checks[depend])
+                    dependReorder = True
                 else:
                     formErrors.append('Invalid check dependency %r' % (depend))
 
@@ -372,6 +406,8 @@ class CheckHandler(BaseHandler):
                 _log.info('Saving new check %s', checkName)
                 self._site.addCheck(checkName, newConf)
                 runCheck = True
+            if dependReorder:
+                util.reorderSite(self._site, checkName, 'dep')
 
             # save out config
             await tornado.ioloop.IOLoop.current().run_in_executor(

@@ -30,6 +30,7 @@ class FletchSite():
         self._shutdown = None
         self._lock = asyncio.Lock()
         self._mqtt = None
+        self._mapCache = None
 
         self.base = '.'
         self.timezone = None
@@ -92,6 +93,50 @@ class FletchSite():
                 ret = ' visually-hidden'
 
         return ret
+
+    def checkMap(self, recalculate=False):
+        """Return a site map grouped by sorted sequences.
+
+        Orphaned checks (those that do not appear in a sequence)
+        are grouped and added to the end of the map with the key
+        None.
+        """
+        if self._mapCache is not None and not recalculate:
+            return self._mapCache
+
+        self._mapCache = {}
+        seqs = {}
+        subchecks = set()
+        checkList = self.sortedChecks()
+
+        # collect all defined sequences ## TODO: check recursion (should be ok)
+        for checkName in checkList:
+            if self.checks[checkName].checkType == 'sequence':
+                count = 0
+                seqs[checkName] = []
+                seq = self.checks[checkName]
+                for subCheckName in seq.checks:
+                    subchecks.add(subCheckName)
+                    sub = self.checks[subCheckName]
+                    seqs[checkName].append((sub.priority, count, subCheckName))
+                    count += 1
+
+        # reorder sequence subchecks and add to map with priority as value
+        for checkName in seqs:
+            self._mapCache[checkName] = {}
+            seqs[checkName].sort()
+            for subcheck in seqs[checkName]:
+                self._mapCache[checkName][subcheck[2]] = subcheck[0]
+
+        # add any orphaned checks to map
+        self._mapCache[None] = {}
+        for checkName in checkList:
+            if checkName not in self._mapCache and checkName not in subchecks:
+                check = self.checks[checkName]
+                self._mapCache[None][checkName] = check.priority
+
+        _log.debug('Re-caclulate site map: %r', self._mapCache)
+        return self._mapCache
 
     def sortedChecks(self):
         """Return the list of check names in priority order"""

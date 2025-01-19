@@ -11,7 +11,7 @@
    </ul>
    {% if site.checks[check].log %}<p class="small">{{ site.checks[check].log[0] }}
    {% for line in site.checks[check].log[1:] %}<br>{{ line }}{% end %}</p>{% end %}
-  <p><a href="/check/{{ site.pathQuote(check) }}?run=y" class="btn btn-sm btn-primary">Re-Run</a></p>
+  <p><a href="/check/{{ site.pathQuote(check) }}?run=home" class="btn btn-sm btn-primary">Re-Run</a></p>
   </div>{% end %}{% end %}{% end %}{% else %}<div class="bg-body-tertiary p-2 rounded">
     <h2 class="py-3">DOG THUMB</h2>
  <p>{{ handler.settings["site_name"] }} monitoring {{ str(len(site.checks)) }} check{{ 's' if len(site.checks) != 1 else '' }}.</p>

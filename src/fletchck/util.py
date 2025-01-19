@@ -21,7 +21,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 
 _log = getLogger('fletchck.util')
-_log.setLevel(INFO)
+_log.setLevel(DEBUG)
 getLogger('apscheduler.executors').setLevel(INFO)
 getLogger('apscheduler.executors.default').setLevel(INFO)
 
@@ -484,7 +484,7 @@ def updateCheck(site, oldName, newName, config):
     del site.checks[oldName]
 
     # add updated config to site with new name
-    addCheck(site, newName, config)
+    addCheck(site, newName, config, update=True)
 
     # repair dependencies and sequences
     newCheck = site.checks[newName]
@@ -500,6 +500,8 @@ def updateCheck(site, oldName, newName, config):
                         cl = c.options['checks']
                         if oldName in cl:
                             cl[cl.index(oldName)] = newName
+    # refresh site map
+    site.checkMap(True)
 
 
 def addAction(site, name, config):
@@ -509,8 +511,8 @@ def addAction(site, name, config):
         _log.warning('Added action %s to site', name)
 
 
-def addCheck(site, name, config):
-    """Add the named check to running site"""
+def addCheck(site, name, config, update=False):
+    """Add the named check to running site, or replace existing if update set"""
     newCheck = check.loadCheck(name, config, site.timezone)
 
     # add actions to check
@@ -566,7 +568,12 @@ def addCheck(site, name, config):
                                    kwargs={'name': name},
                                    id=name,
                                    **trigOpts)
-    _log.warning('Added check %s (%s) to site', name, newCheck.checkType)
+    if not update:
+        # refresh site map
+        site.checkMap(True)
+        _log.warning('Added check %s (%s) to site', name, newCheck.checkType)
+    else:
+        _log.warning('Updated check %s (%s)', name, newCheck.checkType)
 
 
 def deleteCheck(site, check):
@@ -595,7 +602,115 @@ def deleteCheck(site, check):
                     if check in c.options['checks']:
                         _log.debug('Removing %s from %s options', check, name)
                         c.options['checks'].remove(check)
+    # refresh site map
+    site.checkMap(True)
     _log.warning('Deleted check %s from site', check)
+
+
+def reorderSite(site, checkName, mode):
+    """Reorder check in site as per mode, return True if changes made."""
+    check = site.checks[checkName]
+    map = site.checkMap()
+    if mode == 'dep':
+        reMap = False
+        if check.checkType != 'sequence':
+            # Find first sequence this check belongs to and then check deps
+            for seqName in map:
+                if checkName in map[seqName]:
+                    maxPri = -1
+                    for dep in check.depends:
+                        if dep in map[seqName]:
+                            maxPri = max(check.depends[dep].priority, maxPri)
+                            _log.debug('Max priorty depends = %d, own=%d',
+                                       maxPri, check.priority)
+                            if check.priority <= maxPri:
+                                _log.debug('Adjusted priority on %s %d->%d',
+                                           checkName, check.priority,
+                                           maxPri + 1)
+                                check.priority = maxPri + 1
+                                reMap = True
+                    break
+        if reMap:
+            map = site.checkMap(True)
+
+    if check.checkType == 'sequence':
+        _log.debug('Re-order sequence check %r: %r', checkName, mode)
+        if len(map) < 3:
+            _log.debug('Ignored request to reorder less than 2 sequences')
+            return False
+        else:
+            seqOrd = [s for s in map]
+            seqOrd.remove(None)
+            seqIdx = seqOrd.index(checkName)
+            newIdx = seqIdx
+            if mode == 'up':
+                if seqIdx == 0:
+                    _log.debug('Sequence already first')
+                    return False
+                newIdx -= 1
+            elif mode == 'down':
+                if seqIdx >= (len(seqOrd) - 1):
+                    _log.debug('Sequence already last')
+                    return False
+                newIdx += 1
+            elif mode == 'dep':
+                pass
+
+            # swap elements
+            temp = seqOrd[seqIdx]
+            seqOrd[seqIdx] = seqOrd[newIdx]
+            seqOrd[newIdx] = temp
+
+            # re-assign sequence priorities without changing subchecks
+            priority = 100
+            for seqName in seqOrd:
+                site.checks[seqName].priority = priority
+                priority += 100
+
+            # force re-calculation of site map
+            site.checkMap(True)
+            return True
+    else:
+        _log.debug('Re-order check %r: %r', checkName, mode)
+        # find first occurrence of check in map
+        for seqName in map:
+            if checkName in map[seqName]:
+                seqStart = 10000
+                if seqName is not None:
+                    seqStart = site.checks[seqName].priority
+                seqOrd = [c for c in map[seqName]]
+                if len(seqOrd) < 2:
+                    _log.debug('Ignored request to reorder single check')
+                    return False
+                seqIdx = seqOrd.index(checkName)
+                newIdx = seqIdx
+                if mode == 'up':
+                    if seqIdx == 0:
+                        _log.debug('Check already first in sequence')
+                        return False
+                    newIdx -= 1
+                elif mode == 'down':
+                    if seqIdx >= (len(seqOrd) - 1):
+                        _log.debug('Check already last in sequence')
+                        return False
+                    newIdx += 1
+                elif mode == 'dep':
+                    pass
+
+                # swap elements
+                temp = seqOrd[seqIdx]
+                seqOrd[seqIdx] = seqOrd[newIdx]
+                seqOrd[newIdx] = temp
+
+                # re-assign sequence priorities without changing subchecks
+                for checkName in seqOrd:
+                    seqStart += 2  # Allow space for a dependent
+                    site.checks[checkName].priority = seqStart
+
+                # force re-calculation of site map
+                site.checkMap(True)
+                return True
+    return False
 
 
 def loadSite(site):
@@ -707,6 +822,8 @@ def loadSite(site):
 
         site.scheduler = scheduler
         site.scheduler.start()
+        # refresh site map
+        site.checkMap(True)
     except Exception as e:
         _log.error('%s reading config: %s', e.__class__.__name__, e)
 
