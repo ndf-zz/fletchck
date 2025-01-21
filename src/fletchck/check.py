@@ -14,6 +14,8 @@ from threading import Lock
 from cryptography import x509
 from .ups import UpsQsV
 from shutil import disk_usage
+from psutil import virtual_memory, cpu_percent
+from time import sleep
 import dns.rdatatype
 import dns.name
 import dns.resolver
@@ -548,6 +550,7 @@ class httpsCheck(BaseCheck):
     """HTTPS service check"""
 
     def _runCheck(self):
+        tls = self.getBoolOpt('tls', True)
         hostname = self.getStrOpt('hostname', '')
         port = self.getIntOpt('port')
         timeout = self.getIntOpt('timeout', defaults.HTTPSTIMEOUT)
@@ -557,16 +560,22 @@ class httpsCheck(BaseCheck):
 
         failState = True
         try:
-            ctx = ssl.create_default_context()
-            if selfsigned:
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
-            h = HTTPSConnection(host=hostname,
-                                port=port,
-                                timeout=timeout,
-                                context=ctx)
-            h.request(reqType, reqPath)
-            certExpiry(h.sock.getpeercert())
+            h = None
+            if tls:
+                ctx = ssl.create_default_context()
+                if selfsigned:
+                    ctx.check_hostname = False
+                    ctx.verify_mode = ssl.CERT_NONE
+                h = HTTPSConnection(host=hostname,
+                                    port=port,
+                                    timeout=timeout,
+                                    context=ctx)
+                h.request(reqType, reqPath)
+                certExpiry(h.sock.getpeercert())
+            else:
+                _log.debug('Plain http check requested')
+                h = HTTPConnection(host=hostname, port=port, timeout=timeout)
+                h.request(reqType, reqPath)
             r = h.getresponse()
             self.log.append(repr((r.status, r.headers.as_string())))
             failState = False
@@ -842,6 +851,91 @@ class diskCheck(BaseCheck):
         return failState
 
 
+class cpuCheck(BaseCheck):
+    """Check system average cpu usage"""
+
+    def _runCheck(self):
+        self.level = None
+        level = self.getIntOpt('level', defaults.CPULEVEL)
+        hysteresis = self.getIntOpt('hysteresis', defaults.CPUHYSTERESIS)
+
+        failState = True
+        try:
+            load = cpu_percent()
+            if load < 0.001:
+                # force an interval for initial data (refer psutil docs)
+                _log.debug('%s (%s): CPU load delaying first call', self.name,
+                           self.checkType)
+                sleep(1.0)
+                load = cpu_percent()
+
+            self.level = '%2.0f%%' % (load, )
+            msg = 'CPU: %2.0f%%, Target: %d%%' % (load, level)
+            self.log.append(msg)
+
+            prevFail = self.failState
+            if prevFail:
+                if load < (level - hysteresis):  # low trigger
+                    failState = False
+                else:
+                    failState = True
+            else:
+                if load > level:  # high trigger
+                    failState = True
+                else:
+                    failState = False
+        except Exception as e:
+            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+                       e.__class__.__name__, e, self.log)
+            self.log.append('%s: %s' % (e.__class__.__name__, e))
+
+        _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failState)
+        return failState
+
+
+class memoryCheck(BaseCheck):
+    """Check system memory usage"""
+
+    def _runCheck(self):
+        self.level = None
+        level = self.getIntOpt('level', defaults.MEMORYLEVEL)
+        hysteresis = self.getIntOpt('hysteresis', defaults.MEMORYHYSTERESIS)
+
+        failState = True
+        try:
+            mem = virtual_memory()
+            if mem.total > 0.8 * _TERA:
+                msg = 'Memory: %2.0f%% %0.2f/%0.2fTiB, %0.2fTiB Available, Target: %d%%' % (
+                    mem.percent, mem.used / _TERA, mem.total / _TERA,
+                    mem.available / _TERA, level)
+            else:
+                msg = 'Memory: %2.0f%% %0.0f/%0.0fGiB, %0.0fGiB Available, Target: %d%%' % (
+                    mem.percent, mem.used / _GIGA, mem.total / _GIGA,
+                    mem.available / _GIGA, level)
+
+            self.level = '%2.0f%%' % (mem.percent, )
+            self.log.append(msg)
+
+            prevFail = self.failState
+            if prevFail:
+                if mem.percent < (level - hysteresis):  # low trigger
+                    failState = False
+                else:
+                    failState = True
+            else:
+                if mem.percent > level:  # high trigger
+                    failState = True
+                else:
+                    failState = False
+        except Exception as e:
+            _log.debug('%s (%s) %s: %s Log=%r', self.name, self.checkType,
+                       e.__class__.__name__, e, self.log)
+            self.log.append('%s: %s' % (e.__class__.__name__, e))
+
+        _log.debug('%s (%s): Fail=%r', self.name, self.checkType, failState)
+        return failState
+
+
 class tempCheck(BaseCheck):
     """Network-attached temperature probe check"""
 
@@ -1005,5 +1099,7 @@ CHECK_TYPES['ups'] = upsStatus
 CHECK_TYPES['upstest'] = upsTest
 CHECK_TYPES['remote'] = remoteCheck
 CHECK_TYPES['disk'] = diskCheck
+CHECK_TYPES['memory'] = memoryCheck
+CHECK_TYPES['cpu'] = cpuCheck
 CHECK_TYPES['temp'] = tempCheck
 CHECK_TYPES['dns'] = dnsCheck

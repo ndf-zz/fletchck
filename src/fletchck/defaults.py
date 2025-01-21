@@ -105,6 +105,18 @@ DISKLEVEL = 90
 # Hysteresis for disk checks (percent)
 DISKHYSTERESIS = 2
 
+# Memory usage threshold (percent)
+MEMORYLEVEL = 95
+
+# Hysteresis for memory checks (percent)
+MEMORYHYSTERESIS = 2
+
+# Average CPU usage threshold (percent)
+CPULEVEL = 75
+
+# Hysteresis for cpu checks (percent)
+CPUHYSTERESIS = 5
+
 # Temperature warning threshold (degrees C)
 TEMPLEVEL = 50
 
@@ -152,8 +164,7 @@ HIDEOPTIONS = {
     },
     'https': {
         'remoteId', 'level', 'volume', 'serialPort', 'probe', 'hostkey',
-        'checks', 'beeper', 'tls', 'temperature', 'hysteresis', 'reqTcp',
-        'reqName'
+        'checks', 'beeper', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'ssh': {
         'remoteId', 'level', 'volume', 'serialPort', 'probe', 'reqType',
@@ -176,6 +187,44 @@ HIDEOPTIONS = {
         'remoteId', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
         'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'serialPort',
         'beeper', 'temperature', 'reqTcp', 'reqName'
+    },
+    'cpu': {
+        'remoteId',
+        'hostname',
+        'port',
+        'hostkey',
+        'probe',
+        'reqType',
+        'reqPath',
+        'checks',
+        'selfsigned',
+        'tls',
+        'timeout',
+        'serialPort',
+        'beeper',
+        'temperature',
+        'reqTcp',
+        'reqName',
+        'volume',
+    },
+    'memory': {
+        'remoteId',
+        'hostname',
+        'port',
+        'hostkey',
+        'probe',
+        'reqType',
+        'reqPath',
+        'checks',
+        'selfsigned',
+        'tls',
+        'timeout',
+        'serialPort',
+        'beeper',
+        'temperature',
+        'reqTcp',
+        'reqName',
+        'volume',
     },
     'temp': {
         'remoteId', 'hostkey', 'level', 'volume', 'probe', 'reqType',

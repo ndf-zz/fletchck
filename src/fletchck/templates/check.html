@@ -41,7 +41,7 @@
   <label for="name" class="form-label">Name</label>
  </div>
  <div class="mb-3 form-floating">
-  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'cpu', 'memory', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -55,7 +55,7 @@
   <input type="number" class="form-control" name="threshold" id="threshold" placeholder="1" value="{{ check.threshold }}">
   <label for="threshold" class="form-label">Fail threshold</label>
  </div>
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'retries') }}">
+ <div class="mb-3 form-floating{{ site.hideOption(oldName, check.checkType, 'retries') }}">
   <input type="number" class="form-control" name="retries" id="retries" placeholder="1" value="{{ check.retries }}">
   <label for="retries" class="form-label">Fail retries</label>
  </div>
@@ -95,7 +95,7 @@
  </div>
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'level') }}">
-  <input type="number" class="form-control" min="1" max="99" step="1" name="level" id="level" value="{{ check.options['level'] if 'level' in check.options else '90' }}">
+  <input type="number" class="form-control" min="1" max="99" step="1" name="level" id="level" value="{{ check.options['level'] if 'level' in check.options else '' }}">
   <label for="level" class="form-label">Trigger Level %</label>
  </div>
 
@@ -153,17 +153,17 @@
   <p class="form-label">Include in Sequence:</p>
   {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if 'checks' in check.options and depend in check.options['checks'] else '' }} id="seq-{{ id(depend) }}" name="checks" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="seq-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
  </div>
- <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
-  <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
-  <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
- </div>
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'reqTcp') }}">
   <input class="form-check-input" type="checkbox" value="1" name="reqTcp" id="reqTcp" {{ 'checked' if 'reqTcp' in check.options and check.options['reqTcp'] else '' }}>
   <label class="form-check-label" for="reqTcp">Use TCP (dns checks)</label>
  </div>
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'tls') }}">
   <input class="form-check-input" type="checkbox" value="1" name="tls" id="tls" {{ '' if 'tls' in check.options and not check.options['tls'] else 'checked' }}>
-  <label class="form-check-label" for="tls">Use TLS (smtp checks)</label>
+  <label class="form-check-label" for="tls">Use TLS</label>
+ </div>
+ <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
+  <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
+  <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
  </div>
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'beeper') }}">
   <input class="form-check-input" type="checkbox" value="1" name="beeper" id="beeper" {{ '' if 'beeper' in check.options and not check.options['beeper'] else 'checked' }}>
