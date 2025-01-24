@@ -3,11 +3,13 @@
  {% if check and oldName %}
   <h2 class="my-3">{{ oldName }} ({{ check.checkType }}): {{ check.getState() }}</h2>
   <ul>
-   {% if check.checkType != 'sequence' and status['inseqs'][oldName] %}
-   <li>In Sequence: 
-   {% for seqName in status['inseqs'][oldName] %}
-   <a href="/check/{{ site.pathQuote(seqName) }}">{{ seqName }}</a>
-   {% end %}</li>
+   {% if check.checkType != 'sequence' %}
+    {% if status['inseqs'][oldName] %}
+     <li>In Sequence: 
+     {% for seqName in status['inseqs'][oldName] %}
+      <a href="/check/{{ site.pathQuote(seqName) }}">{{ seqName }}</a>
+     {% end %}</li>
+    {% end %}
    {% end %}
    <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
    <li>Last Fail: {{ check.lastFail }}</li>
@@ -24,7 +26,7 @@
   <p><a href="/check/{{ site.pathQuote(oldName) + '?run=y' }}" class="btn btn-primary py-2 mb-3">Run Check</a></p>
   <h2>Configuration</h2>
  {% else %}
-  <h2>New Check</h2>
+  <h2 class="my-3">New Check</h2>
  {% end %}
  {% if formErrors %}<div id="formBody" class="alert alert-warning" role="alert"><p>Form Error:</p><ul>
  {% for l in formErrors %}
@@ -37,16 +39,17 @@
  <input type="hidden" name="oldName" value="{{ oldName }}">
  <input type="hidden" name="priority" value="{{ check.priority }}">
  <div class="form-floating">
-  <input type="text" class="form-control" id="name" name="name" placeholder="name" value="{{ check.name }}">
-  <label for="name" class="form-label">Name</label>
- </div>
- <div class="mb-3 form-floating">
   <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'cpu', 'memory', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
   <label for="checkType" class="form-label">Check type</label>
  </div>
+ <div class="mb-3 form-floating">
+  <input type="text" class="form-control" id="name" name="name" placeholder="name" value="{{ check.name }}">
+  <label for="name" class="form-label">Name</label>
+ </div>
+ {% if check and oldName %}
  <div class="form-floating">
   <input type="text" class="form-control" name="trigger" id="trigger" placeholder="trigger" value="{{ site.getTrigger(check) }}">
   <label for="trigger" class="form-label">Trigger</label>
@@ -150,7 +153,7 @@
  </div>
 
  <div class="mb-3{{ site.hideOption(oldName, check.checkType, 'checks') }}">
-  <p class="form-label">Include in Sequence:</p>
+  <p class="form-label">Sequence Checks:</p>
   {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if 'checks' in check.options and depend in check.options['checks'] else '' }} id="seq-{{ id(depend) }}" name="checks" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="seq-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
  </div>
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'reqTcp') }}">
@@ -180,6 +183,18 @@
   {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if depend in check.depends else '' }} id="dep-{{ id(depend) }}" name="depends" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="dep-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
  </div>
 
+ {% if check.checkType != 'sequence' %}
+ <div class="mb-3">
+  <p class="form-label">Include in Sequence:</p>
+  {% for seq in status['seqs'] %}
+   {% if seq is not None %}
+    <input type="checkbox" class="btn-check" {{ 'checked' if oldName in status['inseqs'] and seq in status['inseqs'][oldName] else '' }} id="inseq-{{ id(seq) }}" name="inseq" value="{{ seq }}"><label class="btn btn-outline-secondary mb-1" for="inseq-{{ id(seq) }}">{{ seq }}</label>
+   {% end %}
+  {% end %}
+ </div>
+ {% end %}
+
+ {% end %}
  <button class="btn btn-primary py-2 mb-3" type="submit">
  {{ 'Update' if check and check.name else 'Create Check' }}
  </button> 

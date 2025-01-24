@@ -94,6 +94,7 @@ class Application(tornado.web.Application):
             (r"/checks", ChecksHandler, dict(site=site)),
             (r"/check/(.*)", CheckHandler, dict(site=site)),
             (r"/move/(.*)", MoveHandler, dict(site=site)),
+            (r"/clone/(.*)", CloneHandler, dict(site=site)),
             (r"/actions", ActionsHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
             (r"/log", LogHandler, dict(site=site)),
@@ -172,6 +173,97 @@ class ChecksHandler(BaseHandler):
                     site=self._site,
                     status=status,
                     section='check')
+
+
+class CloneHandler(BaseHandler):
+    """Check cloning handler."""
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        check = None
+        if path:
+            if path in self._site.checks:
+                status = self._site.getStatus()
+                doSave = False
+                checkName = path
+                check = self._site.checks[checkName]
+                newName = self._site.copyName(checkName)
+                if check.checkType == 'remote':
+                    _log.info('Unable to clone remote check %s', checkName)
+                if check.checkType == 'sequence':
+                    _log.debug('Cloning sequence %s to %s..', checkName,
+                               newName)
+                    map = self._site.checkMap()
+                    newConf = check.flatten()
+                    del (newConf['data'])
+                    oldChecks = []
+                    if 'checks' in newConf['options']:
+                        if newConf['options']['checks']:
+                            oldChecks = newConf['options']['checks']
+                            del (newConf['options']['checks'])
+
+                    # determine and record clone sub check names
+                    oldNew = {}
+                    newChecks = []
+                    for oldSubName in oldChecks:
+                        if oldSubName in self._site.checks:
+                            oldSubCheck = self._site.checks[oldSubName]
+                            if oldSubCheck.checkType != 'remote':
+                                newSubName = self._site.copyName(oldSubName)
+                                oldNew[oldSubName] = newSubName
+                                newChecks.append(newSubName)
+                            else:
+                                _log.debug(
+                                    'Omitting remote check %s from clone',
+                                    oldSubName)
+                    newConf['options']['checks'] = newChecks
+
+                    # create the cloned subchecks
+                    for oldSubName in oldNew:
+                        newSubName = oldNew[oldSubName]
+                        subCheck = self._site.checks[oldSubName]
+                        newSubConf = subCheck.flatten()
+                        del (newSubConf['data'])
+                        newDeps = []
+                        for depName in newSubConf['depends']:
+                            if depName:
+                                if depName in oldNew:
+                                    newDeps.append(oldNew[depName])
+                                else:
+                                    newDeps.append(depName)
+                        newSubConf['depends'] = newDeps
+                        util.addCheck(self._site, newSubName, newSubConf)
+
+                    # add sequence
+                    util.addCheck(self._site, newName, newConf)
+                    self._site.checkMap(True)
+                    doSave = True
+                else:
+                    _log.debug('Cloning check %s to %s..', checkName, newName)
+                    newConf = check.flatten()
+                    del (newConf['data'])
+                    util.addCheck(self._site, newName, newConf)
+                    if newName in self._site.checks:
+                        newCheck = self._site.checks[newName]
+                        if checkName in status['inseqs']:
+                            for seqName in status['inseqs'][checkName]:
+                                if seqName in self._site.checks:
+                                    seq = self._site.checks[seqName]
+                                    seq.add_check(newCheck)
+                            self._site.checkMap(True)
+                    else:
+                        _log.error('New check %s not yet on site', newName)
+                    doSave = True
+                if doSave:
+                    await tornado.ioloop.IOLoop.current().run_in_executor(
+                        None, self._site.saveConfig)
+
+                self.redirect('/checks')
+                return
+            else:
+                raise tornado.web.HTTPError(404)
+        self.redirect('/checks')
+        return
 
 
 class MoveHandler(BaseHandler):
@@ -347,6 +439,7 @@ class CheckHandler(BaseHandler):
                     newConf['options']['checks'].append(c)
         newConf['actions'] = self.get_arguments('actions')
         newConf['depends'] = self.get_arguments('depends')
+        inseq = self.get_arguments('inseq')
 
         # final checks
         if not checkName:
@@ -373,6 +466,25 @@ class CheckHandler(BaseHandler):
                     dependReorder = True
                 else:
                     formErrors.append('Invalid check dependency %r' % (depend))
+        inseqChange = False
+        oldInseq = []
+        status = self._site.getStatus()
+        if oldName in status['inseqs']:
+            oldInseq = status['inseqs'][oldName]
+        newInseq = []
+        for seq in inseq:
+            if seq:
+                if seq in self._site.checks:
+                    if self._site.checks[seq].checkType == 'sequence':
+                        newInseq.append(seq)
+                    else:
+                        formErrors.append('Not a sequence %r' % (seq, ))
+                else:
+                    formErrors.append('Invalid sequence %r' % (seq, ))
+        if newInseq != oldInseq:
+            inseqChange = True
+            _log.info('Sequence membership change: %r != %r', newInseq,
+                      oldInseq)
 
         if formErrors:
             _log.info('Edit check %s with form errors', path)
@@ -405,7 +517,27 @@ class CheckHandler(BaseHandler):
             else:
                 _log.info('Saving new check %s', checkName)
                 self._site.addCheck(checkName, newConf)
-                runCheck = True
+            if dependReorder:
+                util.reorderSite(self._site, checkName, 'dep')
+            if inseqChange:
+                for seqName in oldInseq:
+                    if seqName not in newInseq:
+                        _log.info('Remove %s from sequence %s', checkName,
+                                  seqName)
+                        self._site.checks[seqName].del_check(checkName)
+                if checkName in self._site.checks:
+                    newCheck = self._site.checks[checkName]
+                    for seqName in newInseq:
+                        if seqName not in oldInseq:
+                            _log.info('Add %s to sequence %s', checkName,
+                                      seqName)
+                            self._site.checks[seqName].add_check(newCheck)
+                else:
+                    raise RuntimeError('Check object/name mismatch %s' %
+                                       (checkName, ))
+                # force re-read and re-order of map
+                self._site.checkMap(True)
+                dependReorder = True
             if dependReorder:
                 util.reorderSite(self._site, checkName, 'dep')
 
@@ -419,10 +551,7 @@ class CheckHandler(BaseHandler):
             await tornado.ioloop.IOLoop.current().run_in_executor(
                 None, self._site.runCheck, checkName)
 
-        if path:
-            self.redirect('/check/' + self._site.pathQuote(checkName))
-        else:
-            self.redirect('/checks')
+        self.redirect('/check/' + self._site.pathQuote(checkName))
 
 
 class ActionsHandler(BaseHandler):

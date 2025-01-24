@@ -94,6 +94,15 @@ class FletchSite():
 
         return ret
 
+    def copyName(self, checkName):
+        """Return a clone check name not already in use on site."""
+        if '-copy' in checkName:
+            checkName = checkName[0:checkName.rindex('-copy')]
+        newName = checkName + '-copy'
+        while newName in self.checks:
+            newName = '%s-copy-%s' % (checkName, util.token_hex(2))
+        return newName
+
     def checkMap(self, recalculate=False):
         """Return a site map grouped by sorted sequences.
 
@@ -135,7 +144,7 @@ class FletchSite():
                 check = self.checks[checkName]
                 self._mapCache[None][checkName] = check.priority
 
-        _log.debug('Re-caclulate site map: %r', self._mapCache)
+        _log.debug('Re-calculate site map: %r', self._mapCache)
         return self._mapCache
 
     def sortedChecks(self):

@@ -1009,6 +1009,11 @@ class sequenceCheck(BaseCheck):
         self.softFails = set()
         self.levels = {}
 
+    def flatten(self):
+        ret = super().flatten()
+        ret['options']['checks'] = [c for c in self.checks]
+        return ret
+
     def add_check(self, check):
         """Add check to the sequence"""
         if check is not self:
