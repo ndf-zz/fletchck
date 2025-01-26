@@ -366,6 +366,7 @@ class CheckHandler(BaseHandler):
             if not path:
                 # give new checks a default ordering > worst case: all seqs
                 newConf['priority'] = 100 * len(self._site.checks)
+        newConf['paused'] = bool(self.get_argument('paused', None))
         newConf['passAction'] = bool(self.get_argument('passAction', None))
         newConf['failAction'] = bool(self.get_argument('failAction', None))
         ptopic = self.get_argument('publish', None)

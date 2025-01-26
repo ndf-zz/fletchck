@@ -97,6 +97,8 @@ def loadCheck(name, config, timezone=None):
             ret.subType = config['subType']
         if 'priority' in config and isinstance(config['priority'], int):
             ret.priority = config['priority']
+        if 'paused' in config and isinstance(config['paused'], bool):
+            ret.paused = config['paused']
         if 'failAction' in config and isinstance(config['failAction'], bool):
             ret.failAction = config['failAction']
         if 'passAction' in config and isinstance(config['passAction'], bool):
@@ -150,6 +152,7 @@ class BaseCheck():
 
     def __init__(self, name, options={}):
         self.name = name
+        self.paused = False
         self.failAction = True
         self.passAction = True
         self.publish = None
@@ -183,7 +186,9 @@ class BaseCheck():
 
     def getState(self):
         """Return a string indicating pass or fail"""
-        if self.failState:
+        if self.paused:
+            return 'PAUSED'
+        elif self.failState:
             return 'FAIL'
         else:
             return 'PASS'
@@ -202,6 +207,10 @@ class BaseCheck():
 
     def update(self):
         """Run check, update state and trigger events as required"""
+        if self.paused:
+            _log.debug('%s (%s) PAUSED', self.name, self.checkType)
+            self.log = ['PAUSED']
+            return False
         thisTime = timeString(self.timezone)
         self.lastCheck = thisTime
         self.softFail = None
@@ -321,6 +330,7 @@ class BaseCheck():
             'threshold': self.threshold,
             'retries': self.retries,
             'priority': self.priority,
+            'paused': self.paused,
             'failAction': self.failAction,
             'passAction': self.passAction,
             'publish': self.publish,
@@ -800,8 +810,14 @@ class remoteCheck(BaseCheck):
         self.lastFail = data['lastFail']
         self.lastPass = data['lastPass']
         self.level = data['level']
-        if doNotify:
-            self.notify()
+
+        if self.paused:
+            _log.debug('%s (%s.%s): Remote check paused', self.name,
+                       self.checkType, self.subType)
+            self.failState = False
+        else:
+            if doNotify:
+                self.notify()
 
 
 class diskCheck(BaseCheck):
@@ -1077,6 +1093,8 @@ class sequenceCheck(BaseCheck):
                 self.log.extend(c.log)
                 self.log.append('')
             else:
+                if c.paused:
+                    cMsg = 'PAUSED'
                 lExtra = ''
                 if c.level is not None:
                     lExtra = ' ' + c.level
