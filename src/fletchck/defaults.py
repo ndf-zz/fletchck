@@ -27,7 +27,6 @@ WEBUICONFIG = {
     'port': None,
     'cert': None,
     'key': None,
-    'debug': False,
     'users': None,
 }
 

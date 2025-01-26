@@ -210,6 +210,7 @@ class BaseCheck():
         if self.paused:
             _log.debug('%s (%s) PAUSED', self.name, self.checkType)
             self.log = ['PAUSED']
+            self.failState = False
             return False
         thisTime = timeString(self.timezone)
         self.lastCheck = thisTime

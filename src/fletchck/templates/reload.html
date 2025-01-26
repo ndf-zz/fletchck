@@ -1,0 +1,12 @@
+{% extends "dash.html" %}
+{% block header %}
+ <meta http-equiv="refresh" content="5;url={{ url }}">
+{% end %}
+{% block main %}
+ <div id="formAlert" class="my-3 alert alert-warning" role="alert">
+ {% if message %}
+ <p>{{ message }}</p>
+ {% end %}
+ <p><a href="{{ url }}" class="btn btn-sm btn-primary">Re-Connect</a></p>
+ </div>
+{% end %}

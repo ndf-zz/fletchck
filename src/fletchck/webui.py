@@ -96,6 +96,7 @@ class Application(tornado.web.Application):
             (r"/move/(.*)", MoveHandler, dict(site=site)),
             (r"/clone/(.*)", CloneHandler, dict(site=site)),
             (r"/actions", ActionsHandler, dict(site=site)),
+            (r"/config", ConfigHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
             (r"/log", LogHandler, dict(site=site)),
             (r"/status", StatusHandler, dict(site=site)),
@@ -106,14 +107,14 @@ class Application(tornado.web.Application):
             site_version=defaults.VERSION,
             site_name=site.webCfg['name'],
             autoreload=False,
-            serve_traceback=site.webCfg['debug'],
+            serve_traceback=False,
             static_path='static',
             static_url_prefix='/s/',
             static_handler_class=PackageFileHandler,
             template_loader=templateLoader,
             cookie_secret=util.token_hex(32),
             login_url='/login',
-            debug=True,
+            debug=False,
         )
         super().__init__(handlers, **settings)
 
@@ -555,6 +556,152 @@ class CheckHandler(BaseHandler):
         self.redirect('/check/' + self._site.pathQuote(checkName))
 
 
+class ConfigHandler(BaseHandler):
+
+    @tornado.web.authenticated
+    async def get(self):
+        status = self._site.getStatus()
+        self.render("config.html",
+                    status=status,
+                    section='config',
+                    site=self._site,
+                    formErrors=[])
+
+    @tornado.web.authenticated
+    async def post(self):
+        formErrors = []
+        tzUpdate = False
+        temp = self.get_argument('timezone', '')
+        if temp:
+            zinf = util.check.getZone(temp)
+            if zinf is not None:
+                if self._site.timezone != zinf:
+                    tzUpdate = True
+                    self._site.timezone = zinf
+            else:
+                formErrors.append('Invalid timezone %r' % (temp))
+        else:
+            if self._site.timezone is not None:
+                tzUpdate = True
+                self._site.timezone = None
+
+        newCfg = {'mqtt': None, 'webui': {}}
+        for mkey in defaults.WEBUICONFIG:
+            if mkey != 'users':
+                newCfg['webui'][mkey] = defaults.WEBUICONFIG[mkey]
+                if mkey in ('hostname', 'cert', 'key', 'name'):
+                    temp = self.get_argument('webui.' + mkey, None)
+                    if temp:
+                        newCfg['webui'][mkey] = temp
+                elif mkey == 'port':
+                    temp = self.get_argument('webui.port', '')
+                    if temp:
+                        nv = None
+                        if temp.isdigit():
+                            temp = int(temp)
+                            if temp > 0 and temp < 65536:
+                                nv = temp
+                        if nv is not None:
+                            newCfg['webui']['port'] = nv
+                        else:
+                            formErrors.append('Invalid web UI port %r' %
+                                              (temp))
+
+        enableMqtt = bool(self.get_argument('mqtt.enable', None))
+        if enableMqtt:
+            newCfg['mqtt'] = {}
+            for mkey in defaults.MQTTCONFIG:
+                newCfg['mqtt'][mkey] = defaults.MQTTCONFIG[mkey]
+                if mkey in ('tls', 'persist', 'retain', 'autoadd'):
+                    newCfg['mqtt'][mkey] = bool(
+                        self.get_argument('mqtt.' + mkey, None))
+                elif mkey in ('hostname', 'username', 'password', 'clientid',
+                              'basetopic'):
+                    temp = self.get_argument('mqtt.' + mkey, None)
+                    if temp:
+                        newCfg['mqtt'][mkey] = temp
+                elif mkey == 'port':
+                    temp = self.get_argument('mqtt.port', '')
+                    if temp:
+                        nv = None
+                        if temp.isdigit():
+                            temp = int(temp)
+                            if temp > 0 and temp < 65536:
+                                nv = temp
+                        if nv is not None:
+                            newCfg['mqtt']['port'] = nv
+                        else:
+                            formErrors.append('Invalid MQTT port %r' % (temp))
+                elif mkey == 'qos':
+                    temp = self.get_argument('mqtt.qos', '')
+                    if temp:
+                        nv = None
+                        if temp.isdigit():
+                            temp = int(temp)
+                            if temp in (0, 1, 2):
+                                nv = temp
+                        if nv is not None:
+                            newCfg['mqtt']['qos'] = nv
+                        else:
+                            formErrors.append('Invalid MQTT QoS %r' % (temp))
+
+        if formErrors:
+            _log.info('Edit config with form errors')
+            status = self._site.getStatus()
+            self.render("config.html",
+                        status=status,
+                        section='config',
+                        site=self._site,
+                        formErrors=formErrors)
+            return
+
+        mqttUpdate = False
+        if newCfg['mqtt'] is None:
+            if self._site.mqttCfg is not None:
+                mqttUpdate = True
+                _log.debug('Disabling MQTT interface on site')
+            self._site.mqttCfg = None
+            self._site.reconnectMqtt()
+        else:
+            for mkey in defaults.MQTTCONFIG:
+                if mkey != 'debug':
+                    if self._site.mqttCfg[mkey] != newCfg['mqtt'][mkey]:
+                        mqttUpdate = True
+                        self._site.mqttCfg[mkey] = newCfg['mqtt'][mkey]
+
+            if mqttUpdate:
+                _log.debug('Updating MQTT interface on site')
+                self._site.reconnectMqtt()
+
+        webuiUpdate = False
+        for mkey in defaults.WEBUICONFIG:
+            if mkey != 'users':
+                if self._site.webCfg[mkey] != newCfg['webui'][mkey]:
+                    webuiUpdate = True
+                    self._site.webCfg[mkey] = newCfg['webui'][mkey]
+
+        if tzUpdate or mqttUpdate or webuiUpdate:
+            async with self._site._lock:
+                await tornado.ioloop.IOLoop.current().run_in_executor(
+                    None, self._site.saveConfig)
+        if webuiUpdate:
+            newUrl = 'https://%s:%s' % (self._site.webCfg['hostname'],
+                                        self._site.webCfg['port'])
+            # TODO: add a deferred task to restart webui (somehow)
+            _log.warning('Web UI restarting at %s', newUrl)
+            status = self._site.getStatus()
+            self.render("reload.html",
+                        status=status,
+                        section='config',
+                        site=self._site,
+                        url=newUrl,
+                        message='Web UI restarting...')
+            self._site.runWebRestart()
+            return
+        else:
+            self.redirect('/config')
+
+
 class ActionsHandler(BaseHandler):
 
     @tornado.web.authenticated
@@ -700,3 +847,4 @@ def loadUi(site):
     srv.listen(port, address=site.webCfg['hostname'])
     _log.info('Web UI listening on: https://%s:%s', site.webCfg['hostname'],
               port)
+    return srv

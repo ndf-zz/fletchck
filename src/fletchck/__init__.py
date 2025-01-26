@@ -30,7 +30,9 @@ class FletchSite():
         self._shutdown = None
         self._lock = asyncio.Lock()
         self._mqtt = None
+        self._webui = None
         self._mapCache = None
+        self._bgTasks = set()
 
         self.base = '.'
         self.timezone = None
@@ -144,7 +146,6 @@ class FletchSite():
                 check = self.checks[checkName]
                 self._mapCache[None][checkName] = check.priority
 
-        _log.debug('Re-calculate site map: %r', self._mapCache)
         return self._mapCache
 
     def sortedChecks(self):
@@ -304,6 +305,42 @@ class FletchSite():
                 failCount, 's' if failCount != 1 else '')
         return status
 
+    def reconnectMqtt(self):
+        """Replace site MQTT connection"""
+        if self._mqtt:
+            _log.debug('Disconnecting existing MQTT client')
+            self._mqtt.setcb(None)
+            self._mqtt.exit()
+            self._mqtt = None
+        if self.mqttCfg is not None:
+            _log.debug('Creating new MQTT client')
+            self._mqtt = mclient.Mclient(self.mqttCfg)
+            self._mqtt.setcb(self.recvMsg)
+            self._mqtt.start()
+            if 'basetopic' in self.mqttCfg and self.mqttCfg['basetopic']:
+                _log.info('Subscribe basetopic = %s',
+                          self.mqttCfg['basetopic'])
+                self._mqtt.subscribe(self.mqttCfg['basetopic'])
+
+    def runWebRestart(self):
+        """Arrange for a background restart of web UI"""
+        task = asyncio.create_task(self.restartWebui())
+        self._bgTasks.add(task)
+        task.add_done_callback(self._bgTasks.discard)
+
+    async def restartWebui(self):
+        """Re-Create web UI"""
+        if self._webui is not None:
+            await asyncio.sleep(0)
+            _log.debug('Stopping existing web server')
+            self._webui.stop()
+            await self._webui.close_all_connections()
+            _log.debug('Web server terminated')
+            self._webui = None
+        _log.debug('Loading web ui module')
+        from . import webui
+        self._webui = webui.loadUi(self)
+
     async def run(self):
         """Load and run site in async loop"""
         rootLogger = getLogger()
@@ -321,21 +358,11 @@ class FletchSite():
         asyncio.get_running_loop().add_signal_handler(SIGTERM, self._sigterm)
 
         # create mqtt client library handle
-        if self.mqttCfg:
-            _log.debug('Creating mqtt client')
-            self._mqtt = mclient.Mclient(self.mqttCfg)
-            self._mqtt.setcb(self.recvMsg)
-            self._mqtt.start()
-            if 'basetopic' in self.mqttCfg and self.mqttCfg['basetopic']:
-                _log.info('Subscribe basetopic = %s',
-                          self.mqttCfg['basetopic'])
-                self._mqtt.subscribe(self.mqttCfg['basetopic'])
+        self.reconnectMqtt()
 
         # create tornado application and listen on configured hostname
         if self.doWebUi and self.webCfg is not None:
-            _log.debug('Loading web ui module')
-            from . import webui
-            webui.loadUi(self)
+            self.runWebRestart()
         else:
             _log.info('Running without webui')
 

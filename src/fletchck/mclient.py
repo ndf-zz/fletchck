@@ -53,7 +53,7 @@ class Mclient(threading.Thread):
         if func is not None:
             self.__cb = func
         else:
-            self.__cb = defcallback
+            self.__cb = recvCallback
 
     def set_deftopic(self, topic=None):
         """Set or clear the default publish topic."""
