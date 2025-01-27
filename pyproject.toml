@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fletchck"
-version = "1.1.0a6"
+version = "1.1.0a11"
 description = "Machine monitor"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -24,7 +24,7 @@ dependencies = [
     "tornado>=6.3",
     "passlib",
     "APScheduler",
-    "cryptography",
+    "cryptography>=42.0",
     "paramiko",
     "pyserial",
     "argon2-cffi",
