@@ -7,6 +7,7 @@ import sys
 import json
 import struct
 import math
+from datetime import datetime, timedelta, UTC
 from secrets import randbits, token_hex
 from passlib.hash import argon2 as kdf
 from tempfile import NamedTemporaryFile, mkdtemp
@@ -14,8 +15,8 @@ from logging import getLogger, Handler, DEBUG, INFO, WARNING
 from subprocess import run
 from ipaddress import IPv6Address
 from . import action
-from . import check
 from . import defaults
+from .check import loadCheck, getZone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -25,17 +26,21 @@ _log.setLevel(DEBUG)
 getLogger('apscheduler.executors').setLevel(INFO)
 getLogger('apscheduler.executors.default').setLevel(INFO)
 
-_INTTRIGKEYS = {'weeks', 'days', 'hours', 'minutes', 'seconds', 'jitter'}
+_INTTRIGKEYS = {
+    'weeks',
+    'days',
+    'hours',
+    'minutes',
+    'seconds',
+}
 _INTERVALKEYS = {
     'weeks': 'week',
     'days': 'day',
     'hours': 'hr',
     'minutes': 'min',
     'seconds': 'sec',
-    'start_date': 'start',
     'end_date': 'end',
     'timezone': 'z',
-    'jitter': 'delay'
 }
 _CRONKEYS = {
     'year': 'year',
@@ -46,10 +51,8 @@ _CRONKEYS = {
     'hour': 'hr',
     'minute': 'min',
     'second': 'sec',
-    'start_date': 'start',
     'end_date': 'end',
     'timezone': 'z',
-    'jitter': 'delay',
 }
 
 
@@ -366,15 +369,15 @@ def mergeConfig(path, config, option):
                     _log.info('Imported action: %s', action)
                     doSave = True
             if 'checks' in importConf:
-                for check in importConf['checks']:
-                    if check not in cfgConf['checks']:
-                        cfgConf['checks'][check] = {}
-                    destCheck = cfgConf['checks'][check]
-                    srcCheck = importConf['checks'][check]
+                for checkName in importConf['checks']:
+                    if checkName not in cfgConf['checks']:
+                        cfgConf['checks'][checkName] = {}
+                    destCheck = cfgConf['checks'][checkName]
+                    srcCheck = importConf['checks'][checkName]
                     for key in srcCheck:
                         if key != 'data':
                             destCheck[key] = srcCheck[key]
-                    _log.info('Imported check: %s', check)
+                    _log.info('Imported check: %s', checkName)
                     doSave = True
 
             if doSave:
@@ -507,7 +510,7 @@ def addAction(site, name, config):
 
 def addCheck(site, name, config, update=False):
     """Add the named check to running site, or replace existing if update set"""
-    newCheck = check.loadCheck(name, config, site.timezone)
+    newCheck = loadCheck(name, config, site.timezone)
 
     # add actions to check
     if 'actions' in config:
@@ -529,9 +532,9 @@ def addCheck(site, name, config, update=False):
     if newCheck.checkType == 'sequence':
         if 'checks' in newCheck.options:
             if isinstance(newCheck.options['checks'], list):
-                for s in newCheck.options['checks']:
-                    if s in site.checks:
-                        newCheck.add_check(site.checks[s])
+                for subName in newCheck.options['checks']:
+                    if subName in site.checks:
+                        newCheck.add_check(site.checks[subName])
 
     # add check to site
     site.checks[name] = newCheck
@@ -546,6 +549,9 @@ def addCheck(site, name, config, update=False):
         if 'interval' in newCheck.trigger:
             trigType = 'interval'
             trigOpts = dict(newCheck.trigger['interval'])
+            # set first trigger to run shortly after adding
+            trigOpts['start_date'] = datetime.now(UTC) + timedelta(
+                seconds=defaults.FIRSTTRIGGER)
         elif 'cron' in newCheck.trigger:
             trigType = 'cron'
             trigOpts = dict(newCheck.trigger['cron'])
@@ -557,6 +563,7 @@ def addCheck(site, name, config, update=False):
                     trigOpts['timezone'] = newCheck.timezone
                 elif site.timezone:
                     trigOpts['timezone'] = site.timezone
+            trigOpts['jitter'] = defaults.TRIGGERJITTER
             site.scheduler.add_job(site.runCheck,
                                    trigger=trigType,
                                    kwargs={'name': name},
@@ -570,67 +577,62 @@ def addCheck(site, name, config, update=False):
         _log.warning('Updated check %s (%s)', name, newCheck.checkType)
 
 
-def deleteCheck(site, check):
+def deleteCheck(site, checkName):
     """Remove check from running site"""
     # un-schedule
-    job = site.scheduler.get_job(check)
+    job = site.scheduler.get_job(checkName)
     if job is not None:
-        _log.debug('Removing %s (%r) from schedule', check, job)
-        site.scheduler.remove_job(check)
+        _log.debug('Removing %s (%r) from schedule', checkName, job)
+        site.scheduler.remove_job(checkName)
 
     # remove
-    if check in site.checks:
-        tempCheck = site.checks[check]
+    if checkName in site.checks:
+        tempCheck = site.checks[checkName]
         if tempCheck.remoteId is not None:
             del site.remotes[tempCheck.remoteId]
-        del site.checks[check]
+        del site.checks[checkName]
 
         # remove check from depends and sequences
         for name in site.checks:
             c = site.checks[name]
-            c.del_depend(check)
+            c.del_depend(checkName)
             if c.checkType == 'sequence':
-                c.del_check(check)
-            if 'checks' in c.options:
-                if isinstance(c.options['checks'], list):
-                    if check in c.options['checks']:
-                        _log.debug('Removing %s from %s options', check, name)
-                        c.options['checks'].remove(check)
+                c.del_check(checkName)
     # refresh site map
     site.checkMap(True)
-    _log.warning('Deleted check %s from site', check)
+    _log.warning('Deleted check %s from site', checkName)
 
 
 def reorderSite(site, checkName, mode):
     """Reorder check in site as per mode, return True if changes made."""
-    check = site.checks[checkName]
-    map = site.checkMap()
+    target = site.checks[checkName]
+    siteMap = site.checkMap()
     if mode == 'dep':
         reMap = False
-        if check.checkType != 'sequence':
+        if target.checkType != 'sequence':
             # Find first sequence this check belongs to and then check deps
-            for seqName in map:
-                if checkName in map[seqName]:
+            for seqName in siteMap:
+                if checkName in siteMap[seqName]:
                     maxPri = -1
-                    for dep in check.depends:
-                        if dep in map[seqName]:
-                            maxPri = max(check.depends[dep].priority, maxPri)
-                    if check.priority <= maxPri:
+                    for dep in target.depends:
+                        if dep in siteMap[seqName]:
+                            maxPri = max(target.depends[dep].priority, maxPri)
+                    if target.priority <= maxPri:
                         _log.debug('Adjusted priority on %s %d->%d', checkName,
-                                   check.priority, maxPri + 1)
-                        check.priority = maxPri + 1
+                                   target.priority, maxPri + 1)
+                        target.priority = maxPri + 1
                         reMap = True
                     break
         if reMap:
-            map = site.checkMap(True)
+            siteMap = site.checkMap(True)
 
-    if check.checkType == 'sequence':
+    if target.checkType == 'sequence':
         _log.debug('Re-order sequence check %r: %r', checkName, mode)
-        if len(map) < 3:
+        if len(siteMap) < 3:
             _log.debug('Ignored request to reorder less than 2 sequences')
             return False
         else:
-            seqOrd = [s for s in map]
+            seqOrd = [s for s in siteMap]
             seqOrd.remove(None)
             seqIdx = seqOrd.index(checkName)
             newIdx = seqIdx
@@ -664,12 +666,12 @@ def reorderSite(site, checkName, mode):
     else:
         _log.debug('Re-order check %r: %r', checkName, mode)
         # find first occurrence of check in map
-        for seqName in map:
-            if checkName in map[seqName]:
+        for seqName in siteMap:
+            if checkName in siteMap[seqName]:
                 seqStart = 10000
                 if seqName is not None:
                     seqStart = site.checks[seqName].priority
-                seqOrd = [c for c in map[seqName]]
+                seqOrd = [c for c in siteMap[seqName]]
                 if len(seqOrd) < 2:
                     _log.debug('Ignored request to reorder single check')
                     return False
@@ -716,7 +718,7 @@ def loadSite(site):
             site.base = srcCfg['base']
 
         if 'timezone' in srcCfg and isinstance(srcCfg['timezone'], str):
-            site.timezone = check.getZone(srcCfg['timezone'])
+            site.timezone = getZone(srcCfg['timezone'])
 
         if 'webui' in srcCfg and isinstance(srcCfg['webui'], dict):
             site.webCfg = {}
@@ -754,8 +756,7 @@ def loadSite(site):
         if 'checks' in srcCfg and isinstance(srcCfg['checks'], dict):
             for c in srcCfg['checks']:
                 if isinstance(srcCfg['checks'][c], dict):
-                    newCheck = check.loadCheck(c, srcCfg['checks'][c],
-                                               site.timezone)
+                    newCheck = loadCheck(c, srcCfg['checks'][c], site.timezone)
                     # add actions
                     if 'actions' in srcCfg['checks'][c]:
                         if isinstance(srcCfg['checks'][c]['actions'], list):
@@ -788,6 +789,9 @@ def loadSite(site):
                 if 'interval' in site.checks[c].trigger:
                     if isinstance(site.checks[c].trigger['interval'], dict):
                         trigOpts = dict(site.checks[c].trigger['interval'])
+                        # set first trigger to run shortly after adding
+                        trigOpts['start_date'] = datetime.now(UTC) + timedelta(
+                            seconds=defaults.FIRSTTRIGGER)
                     trigType = 'interval'
                 elif 'cron' in site.checks[c].trigger:
                     if isinstance(site.checks[c].trigger['cron'], dict):
@@ -801,6 +805,7 @@ def loadSite(site):
                             trigOpts['timezone'] = site.checks[c].timezone
                         elif site.timezone:
                             trigOpts['timezone'] = site.timezone
+                    trigOpts['jitter'] = defaults.TRIGGERJITTER
                     scheduler.add_job(site.runCheck,
                                       trigger=trigType,
                                       misfire_grace_time=None,

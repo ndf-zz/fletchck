@@ -18,6 +18,9 @@
    <li>Remote Type: {{ check.subType }}</li>
    <li>Last Updated: {{ check.lastUpdate if check.lastUpdate else 'N/A' }}</li>
    {% end %}
+   {% if check.trigger is not None %}
+   <li>Next Run: {{ site.getNextRun(oldName) or 'N/A' }}</li>
+   {% end %}
   </ul>
   {% if check.log %}
   <h2>Last Check</h2>

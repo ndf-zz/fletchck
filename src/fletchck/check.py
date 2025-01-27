@@ -184,6 +184,10 @@ class BaseCheck():
         """Perform the required check and return fail state"""
         return False
 
+    def timeString(self, dt):
+        """Return string formatted datetime dt in check's timezone"""
+        return dt.astimezone(self.timezone).strftime("%d %b %Y %H:%M %Z")
+
     def getState(self):
         """Return a string indicating pass or fail"""
         if self.paused:
@@ -324,6 +328,9 @@ class BaseCheck():
         """Return the check as a flattened dictionary"""
         actList = [a for a in self.actions]
         depList = [d for d in self.depends]
+        optMap = {}
+        for key in self.options:
+            optMap[key] = self.options[key]
         return {
             'type': self.checkType,
             'subType': self.subType,
@@ -336,7 +343,7 @@ class BaseCheck():
             'passAction': self.passAction,
             'publish': self.publish,
             'remoteId': self.remoteId,
-            'options': self.options,
+            'options': optMap,
             'actions': actList,
             'depends': depList,
             'data': {
@@ -1031,11 +1038,12 @@ class sequenceCheck(BaseCheck):
         ret['options']['checks'] = [c for c in self.checks]
         return ret
 
-    def add_check(self, check):
+    def add_check(self, subcheck):
         """Add check to the sequence"""
-        if check is not self:
-            self.checks[check.name] = check
-            _log.debug('Added check %s to sequence %s', check.name, self.name)
+        if subcheck is not self:
+            self.checks[subcheck.name] = subcheck
+            _log.debug('Added check %s to sequence %s', subcheck.name,
+                       self.name)
 
     def del_check(self, name):
         """Remove check from the sequence"""
@@ -1043,11 +1051,11 @@ class sequenceCheck(BaseCheck):
             del self.checks[name]
             _log.debug('Removed check %s from sequence %s', name, self.name)
 
-    def replace_check(self, name, check):
+    def replace_check(self, name, subcheck):
         """Replace sequence entry with new check if it existed"""
         if name in self.checks:
             self.del_check(name)
-            self.add_check(check)
+            self.add_check(subcheck)
 
     def getSummary(self):
         """Return a short summary of failing checks"""

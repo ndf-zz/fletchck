@@ -217,6 +217,17 @@ class FletchSite():
             util.mergeConfig(self.base, self.configFile, options.merge)
         return doStart
 
+    def getNextRun(self, checkName):
+        ret = None
+        if checkName in self.checks:
+            if self.checks[checkName].trigger is not None:
+                check = self.checks[checkName]
+                job = self.scheduler.get_job(check.name)
+                if job is not None:
+                    if job.next_run_time is not None:
+                        ret = check.timeString(job.next_run_time)
+        return ret
+
     def getTrigger(self, check):
         return util.trigger2Text(check.trigger)
 
@@ -257,7 +268,7 @@ class FletchSite():
             'info': None,
             'checks': {},
             'seqs': {},
-            'inseqs': {}
+            'inseqs': {},
         }
         for checkName in self.checks:
             if checkName not in status['inseqs']:

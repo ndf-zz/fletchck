@@ -13,6 +13,12 @@ HOSTNAME = 'localhost'
 # Fallback default timezone (none = localtime)
 TIMEZONE = None
 
+# Start first interval trigger this many seconds after adding
+FIRSTTRIGGER = 1
+
+# Random jitter seconds added to execution time of triggers
+TRIGGERJITTER = 5
+
 # Configuration filename
 CONFIGPATH = 'fletchck.conf'
 

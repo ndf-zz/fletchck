@@ -191,9 +191,8 @@ class CloneHandler(BaseHandler):
                 newName = self._site.copyName(checkName)
                 if check.checkType == 'remote':
                     _log.info('Unable to clone remote check %s', checkName)
-                if check.checkType == 'sequence':
-                    _log.debug('Cloning sequence %s to %s..', checkName,
-                               newName)
+                elif check.checkType == 'sequence':
+                    _log.debug('Cloning sequence %s to %s', checkName, newName)
                     map = self._site.checkMap()
                     newConf = check.flatten()
                     del (newConf['data'])
@@ -222,6 +221,8 @@ class CloneHandler(BaseHandler):
                     # create the cloned subchecks
                     for oldSubName in oldNew:
                         newSubName = oldNew[oldSubName]
+                        _log.debug('Adding new subcheck: %s clone of %s',
+                                   newSubName, oldSubName)
                         subCheck = self._site.checks[oldSubName]
                         newSubConf = subCheck.flatten()
                         del (newSubConf['data'])
@@ -240,7 +241,7 @@ class CloneHandler(BaseHandler):
                     self._site.checkMap(True)
                     doSave = True
                 else:
-                    _log.debug('Cloning check %s to %s..', checkName, newName)
+                    _log.debug('Cloning check %s to %s', checkName, newName)
                     newConf = check.flatten()
                     del (newConf['data'])
                     util.addCheck(self._site, newName, newConf)
@@ -249,6 +250,9 @@ class CloneHandler(BaseHandler):
                         if checkName in status['inseqs']:
                             for seqName in status['inseqs'][checkName]:
                                 if seqName in self._site.checks:
+                                    _log.debug(
+                                        'Adding clone check %s to sequence %s',
+                                        newName, seqName)
                                     seq = self._site.checks[seqName]
                                     seq.add_check(newCheck)
                             self._site.checkMap(True)
@@ -321,9 +325,9 @@ class CheckHandler(BaseHandler):
             else:
                 raise tornado.web.HTTPError(404)
         else:
-            check = util.check.loadCheck(name='',
-                                         config={'type': 'ssh'},
-                                         timezone=self._site.timezone)
+            check = util.loadCheck(name='',
+                                   config={'type': 'ssh'},
+                                   timezone=self._site.timezone)
             check.priority = 100 * len(self._site.checks)
         status = self._site.getStatus()
         self.render("check.html",
@@ -451,9 +455,9 @@ class CheckHandler(BaseHandler):
                 formErrors.append('Name already in use by another check')
 
         # build a temporary check object using the rest of the config
-        check = util.check.loadCheck(name=checkName,
-                                     config=newConf,
-                                     timezone=self._site.timezone)
+        check = util.loadCheck(name=checkName,
+                               config=newConf,
+                               timezone=self._site.timezone)
         for action in newConf['actions']:
             if action:
                 if action in self._site.actions:
