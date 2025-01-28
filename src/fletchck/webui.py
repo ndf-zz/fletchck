@@ -7,6 +7,7 @@ import tornado.web
 import tornado.ioloop
 import tornado.template
 import json
+import os
 from importlib.resources import files
 from . import defaults
 from . import util
@@ -95,8 +96,9 @@ class Application(tornado.web.Application):
             (r"/check/(.*)", CheckHandler, dict(site=site)),
             (r"/move/(.*)", MoveHandler, dict(site=site)),
             (r"/clone/(.*)", CloneHandler, dict(site=site)),
-            (r"/actions", ActionsHandler, dict(site=site)),
             (r"/config", ConfigHandler, dict(site=site)),
+            (r"/action/(.*)", ActionHandler, dict(site=site)),
+            (r"/user/(.*)", UserHandler, dict(site=site)),
             (r"/login", AuthLoginHandler, dict(site=site)),
             (r"/log", LogHandler, dict(site=site)),
             (r"/status", StatusHandler, dict(site=site)),
@@ -113,7 +115,7 @@ class Application(tornado.web.Application):
             static_handler_class=PackageFileHandler,
             template_loader=templateLoader,
             cookie_secret=util.token_hex(32),
-            login_url='/login',
+            login_url='/login?',
             debug=False,
         )
         super().__init__(handlers, **settings)
@@ -294,6 +296,168 @@ class MoveHandler(BaseHandler):
                 raise tornado.web.HTTPError(404)
         self.redirect('/checks')
         return
+
+
+class UserHandler(BaseHandler):
+    """User editor."""
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        self.redirect('/config')
+
+    @tornado.web.authenticated
+    async def post(self, path):
+        self.redirect('/config')
+
+
+class ActionHandler(BaseHandler):
+    """Action editor."""
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        testMsg = None
+        curAction = None
+        if path:
+            if path in self._site.actions:
+                curAction = self._site.actions[path]
+                runopt = self.get_argument('run', '')
+                if self.get_argument('delete', ''):
+                    _log.info('Deleting action %s without undo', path)
+                    self._site.deleteAction(path)
+                    self.redirect('/config')
+                    return
+                elif runopt:
+                    _log.info('Manually running action %s', path)
+                    res = await tornado.ioloop.IOLoop.current(
+                    ).run_in_executor(None, self._site.testAction, path)
+                    if res:
+                        testMsg = 'Action test completed without error.'
+                    else:
+                        testMsg = 'Action test failed, check log for details.'
+
+                    if runopt == 'list':
+                        self.redirect('/config')
+                        return
+            else:
+                raise tornado.web.HTTPError(404)
+        else:
+            curAction = util.loadAction(name='', config={'type': 'email'})
+        status = self._site.getStatus()
+        self.render("action.html",
+                    status=status,
+                    oldName=path,
+                    curAction=curAction,
+                    section='config',
+                    site=self._site,
+                    testMsg=testMsg,
+                    formErrors=None)
+
+    @tornado.web.authenticated
+    async def post(self, path):
+        oldConf = {}
+        if path:
+            if path in self._site.actions:
+                oldConf = self._site.actions[path].flatten()
+            else:
+                raise tornado.web.HTTPError(404)
+
+        # transfer form data into new config
+        formErrors = []
+        oldName = self.get_argument('oldName', None)
+        if oldName != path:
+            _log.error('Form error: oldName does not match path request')
+            raise tornado.web.HTTPError(500)
+        actionType = self.get_argument('actionType', None)
+        actionName = self.get_argument('name', None)
+        newConf = {"type": actionType}
+        newConf['options'] = {}
+        temp = self.get_argument('hostname', '')
+        if temp:
+            if util.isMacAddr(temp):
+                # assume EUI-64 LL address desired
+                temp = util.mac2ll(temp)
+            elif ':' in temp:
+                # assume ipv6 - check for LL without scope
+                temp = util.lladdscope(temp)
+            else:
+                # probably hostname or v4
+                pass
+            newConf['options']['hostname'] = temp
+        for key in [
+                'sender',
+                'apikey',
+                'url',
+                'username',
+                'password',
+                'site',
+        ]:
+            temp = self.get_argument(key, '')
+            if temp:
+                newConf['options'][key] = temp
+        recipients = self.get_argument('recipients', '')
+        if recipients:
+            newConf['options']['recipients'] = []
+            recreg = set()
+            for r in recipients.split():
+                cr = r.lower()
+                if cr not in recreg:
+                    newConf['options']['recipients'].append(r)
+                    recreg.add(cr)
+        fallback = self.get_argument('fallback', '')
+        if not fallback:
+            if os.path.exists(defaults.SENDMAIL):
+                fallback = defaults.SENDMAIL
+        if fallback:
+            newConf['options']['fallback'] = fallback
+
+        for key in (
+                'port',
+                'timeout',
+        ):
+            temp = self.get_argument(key, '')
+            if temp:
+                newConf['options'][key] = int(temp)
+
+        newInChecks = []
+        for c in self.get_arguments('incheck'):
+            if c in self._site.checks:
+                newInChecks.append(c)
+
+        if formErrors:
+            _log.info('Action %s with form errors', path)
+            status = self._site.getStatus()
+            self.render("action.html",
+                        status=status,
+                        oldName=path,
+                        curAction=curAction,
+                        section='config',
+                        site=self._site,
+                        testMsg=testMsg,
+                        formErrors=None)
+            return
+
+        # if form input ok - check changes
+        async with self._site._lock:
+            # remove old action from all checks
+            for c in self._site.checks:
+                self._site.checks[c].del_action(path)
+
+            if path:
+                # delete the old action handle
+                self._site.deleteAction(path)
+
+            # add action and add to any required checks
+            self._site.addAction(actionName, newConf)
+            curAction = self._site.actions[actionName]
+            for c in newInChecks:
+                if c in self._site.checks:
+                    self._site.checks[c].add_action(curAction)
+
+            # save out config
+            await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.saveConfig)
+
+        self.redirect('/action/' + self._site.pathQuote(actionName))
 
 
 class CheckHandler(BaseHandler):
@@ -704,87 +868,6 @@ class ConfigHandler(BaseHandler):
             return
         else:
             self.redirect('/config')
-
-
-class ActionsHandler(BaseHandler):
-
-    @tornado.web.authenticated
-    async def get(self):
-        testMsg = None
-        if self.get_argument('test', ''):
-            _log.info('Sending test notifications')
-            res = await tornado.ioloop.IOLoop.current().run_in_executor(
-                None, self._site.testActions)
-            _log.debug('After waiting - res = %r', res)
-            if not res:
-                testMsg = 'One or more tests failed, check log for details.'
-
-        status = self._site.getStatus()
-        self.render("actions.html",
-                    status=status,
-                    testMsg=testMsg,
-                    section='actions',
-                    site=self._site,
-                    formErrors=[])
-
-    @tornado.web.authenticated
-    async def post(self):
-        # transfer form data into options
-        emailOptions = {}
-        smsOptions = {}
-
-        # list options
-        nv = self.get_argument('email.recipients', '')
-        if nv:
-            nv = nv.split()
-            if nv:
-                emailOptions['recipients'] = nv
-        nv = self.get_argument('sms.recipients', '')
-        if nv:
-            nv = nv.split()
-            if nv:
-                smsOptions['recipients'] = nv
-
-        # string options
-        for key in [
-                'topic',
-                'site',
-                'hostname',
-                'username',
-                'apikey',
-                'password',
-                'sender',
-                'url',
-        ]:
-            nv = self.get_argument('email.' + key, '')
-            if nv:
-                emailOptions[key] = nv
-            nv = self.get_argument('sms.' + key, '')
-            if nv:
-                smsOptions[key] = nv
-
-        # fallback is email only
-        nv = self.get_argument('email.fallback', '')
-        if nv:
-            emailOptions['fallback'] = nv
-
-        # int options
-        for key in ['port', 'timeout']:
-            nv = self.get_argument('email.' + key, '')
-            if nv:
-                emailOptions[key] = int(nv)
-            nv = self.get_argument('sms.' + key, '')
-            if nv:
-                smsOptions[key] = int(nv)
-
-        async with self._site._lock:
-            if 'email' in self._site.actions:
-                self._site.actions['email'].options = emailOptions
-            if 'sms' in self._site.actions:
-                self._site.actions['sms'].options = smsOptions
-            await tornado.ioloop.IOLoop.current().run_in_executor(
-                None, self._site.saveConfig)
-        self.redirect('/actions')
 
 
 class StatusHandler(BaseHandler):

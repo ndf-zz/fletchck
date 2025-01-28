@@ -245,7 +245,33 @@ HIDEOPTIONS = {
         'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
         'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
         'temperature', 'hysteresis', 'reqTcp', 'reqName'
-    }
+    },
+    'action.email': {
+        'url',
+        'apikey',
+    },
+    'action.sms': {
+        'site',
+        'hostname',
+        'port',
+        'username',
+        'password',
+        'timeout',
+        'fallback',
+    },
+    'action.log': {
+        'site',
+        'url',
+        'apikey',
+        'sender',
+        'recipients',
+        'hostname',
+        'port',
+        'username',
+        'password',
+        'timeout',
+        'fallback',
+    },
 }
 
 

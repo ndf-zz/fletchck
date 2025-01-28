@@ -14,9 +14,9 @@ from tempfile import NamedTemporaryFile, mkdtemp
 from logging import getLogger, Handler, DEBUG, INFO, WARNING
 from subprocess import run
 from ipaddress import IPv6Address
-from . import action
 from . import defaults
-from .check import loadCheck, getZone
+from .action import loadAction
+from .check import loadCheck, getZone, BaseCheck, timeString
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -502,7 +502,7 @@ def updateCheck(site, oldName, newName, config):
 
 
 def addAction(site, name, config):
-    nAct = action.loadAction(name, config)
+    nAct = loadAction(name, config)
     if nAct is not None:
         site.actions[name] = nAct
         _log.warning('Added action %s to site', name)
@@ -575,6 +575,14 @@ def addCheck(site, name, config, update=False):
         _log.warning('Added check %s (%s) to site', name, newCheck.checkType)
     else:
         _log.warning('Updated check %s (%s)', name, newCheck.checkType)
+
+
+def deleteAction(site, actionName):
+    """Remove action from running site"""
+    for checkName in site.checks:
+        site.checks[checkName].del_action(actionName)
+    del site.actions[actionName]
+    _log.warning('Deleted action %s from site', actionName)
 
 
 def deleteCheck(site, checkName):
@@ -745,7 +753,7 @@ def loadSite(site):
         site.actions = {}
         if 'actions' in srcCfg and isinstance(srcCfg['actions'], dict):
             for a in srcCfg['actions']:
-                nAct = action.loadAction(a, srcCfg['actions'][a])
+                nAct = loadAction(a, srcCfg['actions'][a])
                 if nAct is not None:
                     site.actions[a] = nAct
                     _log.debug('Load action %r (%s)', a, nAct.actionType)

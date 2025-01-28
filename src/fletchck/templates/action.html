@@ -1,0 +1,92 @@
+{% extends "dash.html" %}
+{% block main %}
+ {% if curAction and oldName %}
+  <h2 class="my-3">{{ oldName }} ({{ curAction.actionType }})</h2>
+  {% if testMsg %}<p><em>{{ testMsg }}</em></p>{% end %}
+  <p><a href="/action/{{ site.pathQuote(oldName) + '?run=y' }}" title="Manually test action" class="btn btn-primary py-2 mb-3">Test Action</a></p>
+  <h2>Configuration</h2>
+ {% else %}
+  <h2 class="my-3">New Action</h2>
+ {% end %}
+ {% if formErrors %}<div id="formBody" class="alert alert-warning" role="alert"><p>Form Error:</p><ul>
+ {% for l in formErrors %}
+  <li><em>{{ l }}</em></li>
+ {% end %}
+ </ul></div>
+ {% end %}
+ <div id="formBody" class="bg-body-tertiary p-2 rounded">
+ <form action="/action/{{ site.pathQuote(oldName) }}" method="POST">
+ <input type="hidden" name="oldName" value="{{ oldName }}">
+ <div class="form-floating">
+  <select id="actionType" name="actionType" class="form-select">{% for actionType in ['email', 'sms', 'log'] %}{% if curAction.actionType == actionType %}
+   <option selected value="{{ actionType }}">{{ actionType }}</option>{% else %}
+   <option value="{{ actionType }}">{{ actionType }}</option>{% end %}{% end %}
+  </select>
+  <label for="actionType" class="form-label">Action type</label>
+ </div>
+ <div class="mb-3 form-floating">
+  <input type="text" class="form-control" id="name" name="name" placeholder="name" value="{{ curAction.name }}">
+  <label for="name" class="form-label">Name</label>
+ </div>
+ {% if curAction and oldName %}
+ <!-- options -->
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'recipients') }}">
+  <input type="text" class="form-control" name="recipients" id="recipients" placeholder="recipients" value="{{ ' '.join(curAction.options['recipients']) if 'recipients' in curAction.options else '' }}">
+  <label for="recipients" class="form-label">Recipients (space separated)</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'sender') }}">
+  <input type="text" class="form-control" name="sender" id="sender" placeholder="sender" value="{{ curAction.options['sender'] if 'sender' in curAction.options else '' }}">
+  <label for="sender" class="form-label">Sender</label>
+ </div>
+
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'hostname') }}">
+  <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ curAction.options['hostname'] if 'hostname' in curAction.options else '' }}">
+  <label for="hostname" class="form-label">Hostname</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'port') }}">
+  <input type="number" class="form-control" name="port" id="port" placeholder="12345" value="{{ curAction.options['port'] if 'port' in curAction.options else '' }}">
+  <label for="port" class="form-label">Port</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'apikey') }}">
+  <input type="text" class="form-control" name="apikey" id="apikey" placeholder="apikey" value="{{ curAction.options['apikey'] if 'apikey' in curAction.options else '' }}">
+  <label for="apikey" class="form-label">API Key</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'url') }}">
+  <input type="text" class="form-control" name="url" id="url" placeholder="url" value="{{ curAction.options['url'] if 'url' in curAction.options else '' }}">
+  <label for="url" class="form-label">API URL</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'username') }}">
+  <input type="text" class="form-control" name="username" id="username" placeholder="username" value="{{ curAction.options['username'] if 'username' in curAction.options else '' }}">
+  <label for="username" class="form-label">Username</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'password') }}">
+  <input type="text" class="form-control" name="password" id="password" placeholder="password" value="{{ curAction.options['password'] if 'password' in curAction.options else '' }}">
+  <label for="password" class="form-label">Password</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'site') }}">
+  <input type="text" class="form-control" name="site" id="site" placeholder="site" value="{{ curAction.options['site'] if 'site' in curAction.options else '' }}">
+  <label for="site" class="form-label">Site Name</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'fallback') }}">
+  <input type="text" class="form-control" name="fallback" id="fallback" placeholder="fallback" value="{{ curAction.options['fallback'] if 'fallback' in curAction.options else '' }}">
+  <label for="fallback" class="form-label">Fallback Mailer</label>
+ </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'timeout') }}">
+  <input type="number" class="form-control" name="timeout" id="timeout" placeholder="12" value="{{ curAction.options['timeout'] if 'timeout' in curAction.options else '' }}">
+  <label for="timeout" class="form-label">Timeout (seconds)</label>
+ </div>
+ <div class="my-3">
+  <p class="form-label">Apply to Checks:</p>
+  {% for checkName in site.checks %}
+   {% set curCheck = site.checks[checkName] %}
+   <input type="checkbox" class="btn-check" {{ 'checked' if oldName in curCheck.actions else '' }} id="incheck-{{ id(checkName) }}" name="incheck" value="{{ checkName }}"><label class="btn btn-outline-secondary mb-1" for="incheck-{{ id(checkName) }}">{{ checkName }}</label>
+  {% end %}
+ </div>
+
+ {% end %}
+ <button class="btn btn-primary py-2 mb-3" type="submit">
+ {{ 'Update' if curAction and curAction.name else 'Create Action' }}
+ </button> 
+ </form>
+ </div>
+{% end %}

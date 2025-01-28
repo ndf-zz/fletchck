@@ -18,10 +18,16 @@ _log.setLevel(INFO)
 
 ACTION_TYPES = {}
 
+_PATCH_TYPES = {
+    'cksms': 'sms',
+}
+
 
 def loadAction(name, config):
     """Return an action object for the provided config dict"""
     ret = None
+    if config['type'] in _PATCH_TYPES:
+        config['type'] = _PATCH_TYPES[config['type']]
     if config['type'] in ACTION_TYPES:
         options = defaults.getOpt('options', config, dict, {})
         ret = ACTION_TYPES[config['type']](name, options)
@@ -52,6 +58,8 @@ class BaseAction():
         return defaults.getOpt(key, self.options, bool, default)
 
     def _notify(self, source):
+        _log.warning('%s (%s): %s', source.name, source.checkType,
+                     source.getState())
         return True
 
     def trigger(self, source):
@@ -68,7 +76,10 @@ class BaseAction():
 
     def flatten(self):
         """Return the action detail as a flattened dictionary"""
-        return {'type': self.actionType, 'options': self.options}
+        optMap = {}
+        for key in self.options:
+            optMap[key] = self.options[key]
+        return {'type': self.actionType, 'options': optMap}
 
 
 class sendEmail(BaseAction):
@@ -105,7 +116,7 @@ class sendEmail(BaseAction):
 
         ret = True
         if not recipients:
-            _log.info('No email recipients specified - notify ignored')
+            _log.warning('No email recipients specified - notify ignored')
             return ret
 
         msgid = make_msgid()
@@ -209,4 +220,5 @@ class ckSms(BaseAction):
 
 
 ACTION_TYPES['email'] = sendEmail
-ACTION_TYPES['cksms'] = ckSms
+ACTION_TYPES['sms'] = ckSms
+ACTION_TYPES['log'] = BaseAction

@@ -62,19 +62,26 @@ class FletchSite():
         """Load site from config"""
         util.loadSite(self)
 
-    def testActions(self):
-        """Trigger notifications to email and sms actions"""
-        _log.warning('Manually notifying actions')
-        fakeCheck = util.check.BaseCheck('Notification')
-        fakeCheck.checkType = 'action-test'
-        fakeCheck.failState = False
-        fakeCheck.timezone = self.timezone
-        fakeCheck.lastPass = util.check.timeString(self.timezone)
-        fakeCheck.log = ['Testing action notification', '...']
+    def testAction(self, actionName):
+        """Trigger notification on a single action"""
         ret = True
-        for action in self.actions:
-            _log.warning('Calling trigger on %r', action)
-            if not self.actions[action].trigger(fakeCheck):
+        if actionName in self.actions:
+            _log.warning('Manually notifying action %s', actionName)
+            fakeCheck = util.BaseCheck('Test Notification')
+            fakeCheck.checkType = 'action-test'
+            fakeCheck.failState = True
+            fakeCheck.timezone = self.timezone
+            fakeCheck.lastFail = util.timeString(self.timezone)
+            fakeCheck.lastPass = util.timeString(self.timezone)
+            fakeCheck.log = []
+            fakeCheck.log.append('Testing action notification')
+            fakeCheck.log.append('Fletch version: %s' % (defaults.VERSION))
+            val = '%0.0f%%' % (100.0 * util.randbits(8) / 255.0, )
+            fakeCheck.log.append('Some random value: %s' % (val))
+            fakeCheck.level = val
+            ret = True
+            _log.warning('Calling trigger on %r', actionName)
+            if not self.actions[actionName].trigger(fakeCheck):
                 ret = False
         return ret
 
@@ -82,11 +89,11 @@ class FletchSite():
         """Add the named action to site"""
         util.addAction(self, name, config)
 
-    def hideOption(self, path, check, option):
-        """Return a visually-hidden class for options not in check type"""
+    def hideOption(self, path, typeName, option):
+        """Return a visually-hidden class for form options not in named type"""
         ret = ''
-        if path and check in defaults.HIDEOPTIONS:
-            if option in defaults.HIDEOPTIONS[check]:
+        if path and typeName in defaults.HIDEOPTIONS:
+            if option in defaults.HIDEOPTIONS[typeName]:
                 ret = ' visually-hidden'
 
         # override publish when mqtt disabled
@@ -177,6 +184,10 @@ class FletchSite():
     def deleteCheck(self, name):
         """Remove a check from a running site"""
         util.deleteCheck(self, name)
+
+    def deleteAction(self, name):
+        """Remove an acton from running site"""
+        util.deleteAction(self, name)
 
     def runCheck(self, name):
         """Run a check by name"""

@@ -180,12 +180,10 @@
   <label class="form-check-label" for="beeper">Enable UPS Beeper (ups checks)</label>
  </div>
 
- {% if site.actions %}
  <div class="mb-3">
   <p class="form-label">Actions:</p>
   {% for action in site.actions %} <input type="checkbox" class="btn-check" {{ 'checked' if action in check.actions else '' }} id="act-{{ id(action) }}" name="actions" value="{{ action }}"><label class="btn btn-outline-secondary mb-1" for="act-{{ id(action) }}">{{ action }}</label>{% end %}
  </div>
- {% end %}
 
  <div class="mb-3">
   <p class="form-label">Depends on:</p>

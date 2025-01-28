@@ -15,5 +15,5 @@
   </div>{% end %}{% end %}{% end %}{% else %}<div class="bg-body-tertiary p-2 rounded">
     <h2 class="py-3">&#x0001F44D;</h2>
  <p>{{ handler.settings["site_name"] }} monitoring {{ str(len(site.checks)) }} check{{ 's' if len(site.checks) != 1 else '' }}.</p>
- <p class="pt-3"><a class="btn btn-primary" href="/check/" role="button">Add Check</a></p>
+ <p class="pt-3"><a class="btn btn-primary" href="/check/" title="Add new check to site" role="button">Add Check</a></p>
  </div>{% end %}{% end %}

@@ -6,6 +6,41 @@
  {% end %}
  </ul></div>
  {% end %}
+ <div id="actionBody" class="my-3 bg-body-tertiary p-2 rounded">
+ <h3>Actions</h3>
+ {% if site.actions %}
+ <table class="table table-hover">
+  <tbody>
+   {% for actionName in site.actions %}
+    {% set curAct = site.actions[actionName] %}
+    <tr>
+    <td>{{ actionName }} ({{ curAct.actionType }})<a title="Test Action" href="/action/{{ site.pathQuote(actionName) }}?run=list"><img src="{{ static_url("play-btn.svg") }}" alt="run" width="16" class="ms-2"></a></td>
+    <td class="text-nowrap text-end"><a href="/action/{{ site.pathQuote(actionName) }}" title="Edit"><img src="{{ static_url("pencil.svg") }}" alt="edit" width="16" class="me-3"></a>&nbsp;<a href="/action/{{ site.pathQuote(actionName) + '?delete=y' }}" title="Delete"><img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16"></a></td>
+    </tr>
+   {% end %}
+  </tbody>
+ </table>
+ {% end %}
+ <p class="pt-3"><a class="btn btn-primary" href="/action/" title="Add new action to site" role="button">Add Action</a></p>
+ </div>
+ {% if site.webCfg is not None %}
+ <div id="userBody" class="my-3 bg-body-tertiary p-2 rounded">
+ <h3>Users</h3>
+ <table class="table table-hover">
+  <tbody>
+   {% for userName in site.webCfg['users'] %}
+    {% if userName %}
+    <tr>
+    <td>{{ userName }}</td>
+    <td class="text-nowrap text-end"><a href="/user/{{ site.pathQuote(userName) }}" title="Change Password"><img src="{{ static_url("pencil.svg") }}" alt="edit" width="16" class="me-3"></a>&nbsp;{% if userName != 'admin' %}<a href="/user/{{ site.pathQuote(userName) + '?delete=y' }}" title="Delete"><img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16"></a>{% else %}<img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16">{% end %}</td>
+    </tr>
+    {% end %}
+   {% end %}
+  </tbody>
+ </table>
+ <p class="pt-3"><a class="btn btn-primary" href="/user/" title="Add new user to site" role="button">Add User</a></p>
+ </div>
+ {% end %}
  <div id="formBody" class="my-3 bg-body-tertiary p-2 rounded">
  <form action="/config" method="POST">
  <h3>Site</h3>
@@ -87,13 +122,7 @@
   <input class="form-check-input" type="checkbox" value="1" name="mqtt.tls" id="mqtt.tls" {{ '' if site.mqttCfg is not None and not site.mqttCfg['tls'] else 'checked' }}>
   <label class="form-check-label" for="mqtt.tls">TLS</label>
  </div>
- <button class="btn btn-primary py-2 mt-3" type="submit">Update</button>
+ <button class="btn btn-primary py-2 mt-3" type="submit" title="Update site settings">Update</button>
  </form>
- </div>
- <div id="userBody" class="my-3 bg-body-tertiary p-2 rounded">
- <h3>Users</h3>
- </div>
- <div id="actionBody" class="my-3 bg-body-tertiary p-2 rounded">
- <h3>Actions</h3>
  </div>
 {% end %}
