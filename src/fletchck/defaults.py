@@ -71,6 +71,9 @@ PASSBITS = 70
 # Note: Only first power of 2 used
 PASSCHARS = '0123456789abcdefghjk-pqrst+vwxyz'
 
+# Primary adminsitrator username
+ADMINUSER = 'admin'
+
 # SMTP check timeout
 SMTPTIMEOUT = 6
 

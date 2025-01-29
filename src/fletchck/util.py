@@ -335,7 +335,8 @@ def mergeConfig(path, config, option):
                                 dst['users'], dict):
                             dst['users'] = {}
                         for user in src['users']:
-                            if user == 'admin' and 'admin' in dst['users']:
+                            if user == defaults.ADMINUSER and defaults.ADMINUSER in dst[
+                                    'users']:
                                 _log.warning('Admin user not updated')
                             else:
                                 dst['users'][user] = src['users'][user]
@@ -433,7 +434,7 @@ def initSite(path, webUi=True, webPort=None):
         # create admin user
         siteCfg['webui']['users'] = {}
         adminPw = randPass()
-        siteCfg['webui']['users']['admin'] = createHash(adminPw)
+        siteCfg['webui']['users'][defaults.ADMINUSER] = createHash(adminPw)
         # add dummy hash for unknown users
         siteCfg['webui']['users'][''] = createHash(randPass())
     else:
@@ -582,7 +583,27 @@ def deleteAction(site, actionName):
     for checkName in site.checks:
         site.checks[checkName].del_action(actionName)
     del site.actions[actionName]
-    _log.warning('Deleted action %s from site', actionName)
+    _log.warning('Deleted action %s', actionName)
+
+
+def updateUser(site, username, password=None, passHash=None):
+    """Update or add user"""
+    if site.webCfg is not None:
+        if username:
+            if password or passHash:
+                if passHash is None:
+                    passHash = createHash(password)
+                site.webCfg['users'][username] = passHash
+                _log.warning('Updated user %s', username)
+
+
+def deleteUser(site, username):
+    """Remove username from webui"""
+    if site.webCfg is not None:
+        if username and username != defaults.ADMINUSER:
+            if username in site.webCfg['users']:
+                del site.webCfg['users'][username]
+                _log.warning('Deleted user %s', username)
 
 
 def deleteCheck(site, checkName):

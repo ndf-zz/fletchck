@@ -1,36 +1,5 @@
 {% extends "dash.html" %}
 {% block main %}
- {% if check and oldName %}
-  <h2 class="my-3">{{ oldName }} ({{ check.checkType }}): {{ check.getState() }}</h2>
-  <ul>
-   {% if check.checkType != 'sequence' %}
-    {% if status['inseqs'][oldName] %}
-     <li>In Sequence: 
-     {% for seqName in status['inseqs'][oldName] %}
-      <a href="/check/{{ site.pathQuote(seqName) }}">{{ seqName }}</a>
-     {% end %}</li>
-    {% end %}
-   {% end %}
-   <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
-   <li>Last Fail: {{ check.lastFail }}</li>
-   <li>Last Pass: {{ check.lastPass }}</li>
-   {% if check.checkType == 'remote' %}
-   <li>Remote Type: {{ check.subType }}</li>
-   <li>Last Updated: {{ check.lastUpdate if check.lastUpdate else 'N/A' }}</li>
-   {% end %}
-   {% if check.trigger is not None %}
-   <li>Next Run: {{ site.getNextRun(oldName) or 'N/A' }}</li>
-   {% end %}
-  </ul>
-  {% if check.log %}
-  <h2>Last Check</h2>
-  <pre>{{ '\n'.join(check.log) }}</pre>
-  {% end %}
-  <p><a href="/check/{{ site.pathQuote(oldName) + '?run=y' }}" title="Manually run check" class="btn btn-primary py-2 mb-3">Run Check</a></p>
-  <h2>Configuration</h2>
- {% else %}
-  <h2 class="my-3">New Check</h2>
- {% end %}
  {% if formErrors %}<div id="formBody" class="alert alert-warning" role="alert"><p>Form Error:</p><ul>
  {% for l in formErrors %}
   <li><em>{{ l }}</em></li>
@@ -38,172 +7,23 @@
  </ul></div>
  {% end %}
  <div id="formBody" class="bg-body-tertiary p-2 rounded">
- <form action="/check/{{ site.pathQuote(oldName) }}" method="POST">
+ {% if user and oldName %}
+  <h2 class="my-3">Edit User</h2>
+ {% else %}
+  <h2 class="my-3">Add New User</h2>
+ {% end %}
+ <form action="/user/{{ site.pathQuote(oldName) }}" method="POST">
  <input type="hidden" name="oldName" value="{{ oldName }}">
- <input type="hidden" name="priority" value="{{ check.priority }}">
  <div class="form-floating">
-  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'cpu', 'memory', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
-   <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
-   <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
-  </select>
-  <label for="checkType" class="form-label">Check type</label>
+  <input type="text" {{ 'disabled' if adminuser else '' }} class="form-control" id="username" name="username" placeholder="username" value="{{ user }}">
+  <label for="username" class="form-label">Username</label>
  </div>
- <div class="mb-3 form-floating">
-  <input type="text" class="form-control" id="name" name="name" placeholder="name" value="{{ check.name }}">
-  <label for="name" class="form-label">Name</label>
- </div>
- {% if check and oldName %}
- <div class="form-floating">
-  <input type="text" class="form-control" name="trigger" id="trigger" placeholder="trigger" value="{{ site.getTrigger(check) }}">
-  <label for="trigger" class="form-label">Trigger</label>
- </div>
- <div class="mb-3 form-floating">
-  <input type="number" class="form-control" name="threshold" id="threshold" placeholder="1" value="{{ check.threshold }}">
-  <label for="threshold" class="form-label">Fail threshold</label>
- </div>
- <div class="mb-3 form-floating{{ site.hideOption(oldName, check.checkType, 'retries') }}">
-  <input type="number" class="form-control" name="retries" id="retries" placeholder="1" value="{{ check.retries }}">
-  <label for="retries" class="form-label">Fail retries</label>
- </div>
- <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="paused" id="paused" {{ 'checked' if check.paused else '' }}>
-  <label class="form-check-label" for="paused">Pause check</label>
- </div>
- <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="passAction" id="passAction" {{ 'checked' if check.passAction else '' }}>
-  <label class="form-check-label" for="passAction">Notify on change to pass</label>
- </div>
- <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="failAction" id="failAction" {{ 'checked' if check.failAction else '' }}>
-  <label class="form-check-label" for="failAction">Notify on change to fail</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'publish') }}">
-  <input type="text" class="form-control" name="publish" id="publish" placeholder="Topic" value="{{ check.publish if check.publish else '' }}">
-  <label for="publish" class="form-label">MQTT publish topic</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'remoteId') }}">
-  <input type="text" class="form-control" name="remoteId" id="remoteId" placeholder="Topic" value="{{ check.remoteId if check.remoteId else '' }}">
-  <label for="remoteId" class="form-label">Remote ID</label>
- </div>
-
- <!-- options -->
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostname') }}">
-  <input type="text" class="form-control" name="hostname" id="hostname" placeholder="hostname" value="{{ check.options['hostname'] if 'hostname' in check.options else '' }}">
-  <label for="hostname" class="form-label">Hostname</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'port') }}">
-  <input type="number" class="form-control" name="port" id="port" placeholder="12345" value="{{ check.options['port'] if 'port' in check.options else '' }}">
-  <label for="port" class="form-label">Port</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'volume') }}">
-  <input type="text" class="form-control" name="volume" id="volume" placeholder="volume" value="{{ check.options['volume'] if 'volume' in check.options else '/' }}">
-  <label for="volume" class="form-label">Disk Volume</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'level') }}">
-  <input type="number" class="form-control" min="1" max="99" step="1" name="level" id="level" value="{{ check.options['level'] if 'level' in check.options else '' }}">
-  <label for="level" class="form-label">Trigger Level %</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'temperature') }}">
-  <input type="number" class="form-control" min="-20" max="80" step="1" name="temperature" id="temperature" value="{{ check.options['temperature'] if 'temperature' in check.options else '50' }}">
-  <label for="temperature" class="form-label">Trigger Temperature &deg;C</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hysteresis') }}">
-  <input type="number" class="form-control" min="1" max="10" step="1" name="hysteresis" id="hysteresis" value="{{ check.options['hysteresis'] if 'hysteresis' in check.options else '1' }}">
-  <label for="hysteresis" class="form-label">Hysteresis</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'serialPort') }}">
-  <input type="text" class="form-control" name="serialPort" id="serialPort" placeholder="serialPort" value="{{ check.options['serialPort'] if 'serialPort' in check.options else '' }}">
-  <label for="serialPort" class="form-label">Serial Port (ups checks)</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'timeout') }}">
-  <input type="number" class="form-control" name="timeout" id="timeout" placeholder="10" value="{{ check.options['timeout'] if 'timeout' in check.options else '' }}">
-  <label for="timeout" class="form-label">Timeout (seconds)</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'hostkey') }}">
-  <input type="text" class="form-control" name="hostkey" id="hostkey" placeholder="Base64 Hostkey" value="{{ check.options['hostkey'] if 'hostkey' in check.options else '' }}">
-  <label for="hostkey" class="form-label">Server public key (ssh checks)</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'probe') }}">
-  <input type="text" class="form-control" name="probe" id="probe" placeholder="probe" value="{{ check.options['probe'] if 'probe' in check.options else '' }}">
-  <label for="probe" class="form-label">Probe text (cert checks)</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqType') }}">
-  <input type="text" class="form-control" name="reqType" id="reqType" placeholder="request type" value="{{ check.options['reqType'] if 'reqType' in check.options else '' }}">
-  <label for="reqType" class="form-label">Request method/type (https/dns checks)</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqPath') }}">
-  <input type="text" class="form-control" name="reqPath" id="reqPath" placeholder="request path" value="{{ check.options['reqPath'] if 'reqPath' in check.options else '' }}">
-  <label for="reqPath" class="form-label">Request path (https checks)</label>
- </div>
-
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'reqName') }}">
-  <input type="text" class="form-control" name="reqName" id="reqName" placeholder="request path" value="{{ check.options['reqName'] if 'reqName' in check.options else '' }}">
-  <label for="reqName" class="form-label">Request name (dns checks)</label>
- </div>
-
  <div class="form-floating mb-3">
-  <input type="text" class="form-control" name="timezone" id="timezone" placeholder="timezone" value="{{ check.options['timezone'] if 'timezone' in check.options else '' }}">
-  <label for="timezone" class="form-label">Service timezone</label>
+  <input type="text" class="form-control" id="password" name="password" placeholder="password" value="{{ tmpPass }}">
+  <label for="password" class="form-label">{{ 'Password' if tmpPass else 'New Password' }}</label>
  </div>
-
- <div class="mb-3{{ site.hideOption(oldName, check.checkType, 'checks') }}">
-  <p class="form-label">Sequence Checks:</p>
-  {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if check.checkType=='sequence' and depend in check.checks else '' }} id="seq-{{ id(depend) }}" name="checks" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="seq-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
- </div>
- <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'reqTcp') }}">
-  <input class="form-check-input" type="checkbox" value="1" name="reqTcp" id="reqTcp" {{ 'checked' if 'reqTcp' in check.options and check.options['reqTcp'] else '' }}>
-  <label class="form-check-label" for="reqTcp">Use TCP (dns checks)</label>
- </div>
- <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'tls') }}">
-  <input class="form-check-input" type="checkbox" value="1" name="tls" id="tls" {{ '' if 'tls' in check.options and not check.options['tls'] else 'checked' }}>
-  <label class="form-check-label" for="tls">Use TLS</label>
- </div>
- <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
-  <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
-  <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
- </div>
- <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'beeper') }}">
-  <input class="form-check-input" type="checkbox" value="1" name="beeper" id="beeper" {{ '' if 'beeper' in check.options and not check.options['beeper'] else 'checked' }}>
-  <label class="form-check-label" for="beeper">Enable UPS Beeper (ups checks)</label>
- </div>
-
- <div class="mb-3">
-  <p class="form-label">Actions:</p>
-  {% for action in site.actions %} <input type="checkbox" class="btn-check" {{ 'checked' if action in check.actions else '' }} id="act-{{ id(action) }}" name="actions" value="{{ action }}"><label class="btn btn-outline-secondary mb-1" for="act-{{ id(action) }}">{{ action }}</label>{% end %}
- </div>
-
- <div class="mb-3">
-  <p class="form-label">Depends on:</p>
-  {% for depend in site.sortedChecks() %}{% if depend != check.name %} <input type="checkbox" class="btn-check" {{ 'checked' if depend in check.depends else '' }} id="dep-{{ id(depend) }}" name="depends" value="{{ depend }}"><label class="btn btn-outline-secondary mb-1" for="dep-{{ id(depend) }}">{{ depend }}</label>{% end %}{% end %}
- </div>
-
- {% if check.checkType != 'sequence' %}
- <div class="mb-3">
-  <p class="form-label">Include in Sequence:</p>
-  {% for seq in status['seqs'] %}
-   {% if seq is not None %}
-    <input type="checkbox" class="btn-check" {{ 'checked' if oldName in status['inseqs'] and seq in status['inseqs'][oldName] else '' }} id="inseq-{{ id(seq) }}" name="inseq" value="{{ seq }}"><label class="btn btn-outline-secondary mb-1" for="inseq-{{ id(seq) }}">{{ seq }}</label>
-   {% end %}
-  {% end %}
- </div>
- {% end %}
-
- {% end %}
  <button class="btn btn-primary py-2 mb-3" type="submit">
- {{ 'Update' if check and check.name else 'Create Check' }}
+ {{ 'Update User' if user else 'Create User' }}
  </button> 
  </form>
  </div>

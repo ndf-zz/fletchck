@@ -127,7 +127,17 @@ class BaseHandler(tornado.web.RequestHandler):
         self._site = site
 
     def get_current_user(self):
-        return self.get_signed_cookie("user", max_age_days=defaults.AUTHEXPIRY)
+        username = None
+        cookie = self.get_signed_cookie("user",
+                                        max_age_days=defaults.AUTHEXPIRY)
+        if cookie is not None:
+            username = cookie.decode('utf-8', 'replace')
+            # invalidate sessions for a deleted user
+            if username not in self._site.webCfg['users']:
+                _log.warning('Rejected invalid session for deleted user: %s',
+                             username)
+                username = None
+        return username
 
     def set_default_headers(self, *args, **kwargs):
         self.set_header("Content-Security-Policy", defaults.CSP)
@@ -303,10 +313,105 @@ class UserHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def get(self, path):
-        self.redirect('/config')
+        if self.current_user != defaults.ADMINUSER:
+            _log.warning('User %s not authorised to edit users',
+                         self.current_user)
+            raise tornado.web.HTTPError(403)
+        tmpPass = ''
+        curUser = ''
+        if path:
+            if path in self._site.webCfg['users']:
+                curUser = path
+                if self.get_argument('delete', ''):
+                    if curUser == defaults.ADMINUSER:
+                        _log.warning('Administrator %s may not be deleted',
+                                     defaults.ADMINUSER)
+                        raise tornado.web.HTTPError(403)
+
+                    _log.debug('Deleting user %s without undo', curUser)
+                    self._site.deleteUser(curUser)
+                    self.redirect('/config')
+                    return
+            else:
+                raise tornado.web.HTTPError(404)
+        else:
+            # new user creation path
+            tmpPass = util.randPass()
+        status = self._site.getStatus()
+        self.render("user.html",
+                    status=status,
+                    oldName=path,
+                    user=curUser,
+                    tmpPass=tmpPass,
+                    section='config',
+                    site=self._site,
+                    adminuser=path == defaults.ADMINUSER,
+                    formErrors=None)
+        return
 
     @tornado.web.authenticated
     async def post(self, path):
+        formErrors = []
+        if self.current_user != defaults.ADMINUSER:
+            _log.warning('User %s not authorised to edit users',
+                         self.current_user)
+            raise tornado.web.HTTPError(403)
+        if path:
+            if path in self._site.webCfg['users']:
+                oldName = path
+            else:
+                raise tornado.web.HTTPError(404)
+        oldName = self.get_argument('oldName', None)
+        if oldName != path:
+            _log.error('Form error: oldName does not match path request')
+            raise tornado.web.HTTPError(500)
+        newName = self.get_argument('username', '')
+        if newName:
+            if newName != oldName:
+                if newName in self._site.webCfg['users']:
+                    formErrors.append(
+                        'Invalid username, please choose another')
+            else:
+                if oldName == defaults.ADMINUSER:
+                    _log.error('Form error: Reject username change for admin')
+                    raise tornado.web.HTTPError(500)
+        else:
+            if oldName == defaults.ADMINUSER:
+                newName = oldName
+            else:
+                formErrors.append('Username required')
+
+        newPass = self.get_argument('password', '')
+        oldHash = None
+        if not newPass:
+            if path:
+                oldHash = self._site.webCfg['users'][oldName]
+            else:
+                formErrors.append('Password required for new user')
+
+        if formErrors:
+            _log.info('User update %s with form errors', path)
+            status = self._site.getStatus()
+            self.render("user.html",
+                        status=status,
+                        oldName=path,
+                        user=newName,
+                        tmpPass=newPass,
+                        section='config',
+                        site=self._site,
+                        adminuser=path == defaults.ADMINUSER,
+                        formErrors=formErrors)
+            return
+
+        if newName != oldName:
+            self._site.deleteUser(oldName)
+        if newName != oldName or newPass:
+            await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.updateUser, newName, newPass, oldHash)
+            await tornado.ioloop.IOLoop.current().run_in_executor(
+                None, self._site.saveConfig)
+        else:
+            _log.debug('No change required on user %s', oldName)
         self.redirect('/config')
 
 
@@ -733,6 +838,7 @@ class ConfigHandler(BaseHandler):
                     status=status,
                     section='config',
                     site=self._site,
+                    showusers=self.current_user == defaults.ADMINUSER,
                     formErrors=[])
 
     @tornado.web.authenticated
@@ -820,6 +926,7 @@ class ConfigHandler(BaseHandler):
                         status=status,
                         section='config',
                         site=self._site,
+                        showusers=self.current_user == defaults.ADMINUSER,
                         formErrors=formErrors)
             return
 
@@ -903,7 +1010,7 @@ class AuthLoginHandler(BaseHandler):
 
         if uv is not None and po:
             self.set_signed_cookie("user",
-                                   uv,
+                                   uv.encode('utf-8', 'replace'),
                                    expires_days=None,
                                    secure=True,
                                    samesite='Strict')

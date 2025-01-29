@@ -189,6 +189,14 @@ class FletchSite():
         """Remove an acton from running site"""
         util.deleteAction(self, name)
 
+    def updateUser(self, username, password=None, passHash=None):
+        """Update or add user."""
+        util.updateUser(self, username, password, passHash)
+
+    def deleteUser(self, username):
+        """Remove a user from running site."""
+        util.deleteUser(self, username)
+
     def runCheck(self, name):
         """Run a check by name"""
         if name in self.checks:
