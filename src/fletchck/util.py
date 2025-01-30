@@ -4,6 +4,7 @@
 import os
 import re
 import sys
+import csv
 import json
 import struct
 import math
@@ -53,6 +54,19 @@ _CRONKEYS = {
     'second': 'sec',
     'end_date': 'end',
     'timezone': 'z',
+}
+_BOOLVALS = {
+    't': True,
+    'f': False,
+    '1': True,
+    '0': False,
+    'true': True,
+    'false': False,
+    'yes': True,
+    'no': False,
+    'null': False,
+    'none': False,
+    '': False,
 }
 
 
@@ -109,6 +123,30 @@ class LogHandler(Handler):
         self.site.log.append(msg)
         if len(self.site.log) > 200:
             del (self.site.log[0:10])
+
+
+def toBool(boolstr):
+    key = boolstr.lower()
+    if key in _BOOLVALS:
+        return _BOOLVALS[key]
+    if key.isdigit():
+        return bool(int(key))
+    else:
+        return bool(key)
+
+
+def toHostname(hostname):
+    """Check hostname for MAC or unscoped ipv6 ll"""
+    if isMacAddr(hostname):
+        # assume EUI-64 LL address desired
+        hostname = mac2ll(hostname)
+    elif ':' in hostname:
+        # assume ipv6 - check for LL without scope
+        hostname = lladdscope(hostname)
+    else:
+        # probably hostname or v4
+        pass
+    return hostname
 
 
 def isMacAddr(hostname):
@@ -169,7 +207,6 @@ def text2Trigger(triggerText):
         trigger = None
         if triggerText:
             tv = triggerText.lower().split()
-            _log.debug('tv is: %r', tv)
             if tv:
                 # check type prefix
                 trigType = tv[0]
@@ -180,7 +217,7 @@ def text2Trigger(triggerText):
                     tv.pop(0)
                     trigger = {'cron': {}}
                 else:
-                    _log.debug('Assuming interval')
+                    _log.debug('text2Trigger: Assuming interval for %r', tv)
                     trigger = {'interval': {}}
 
                 keyMap = {}
@@ -302,6 +339,251 @@ def saveSite(site):
     _log.debug('Saved site config to %r', site.configFile)
 
 
+def readCsv(csvFile):
+    """Read CSV file and return a check config."""
+    checkOpts = (
+        'trigger',
+        'paused',
+        'threshold',
+        'retries',
+        'priority',
+        'failAction',
+        'passAction',
+        'publish',
+        'remoteId',
+        'timezone',
+    )
+    specialOpts = (
+        'name',
+        'checkType',
+        'depends',
+        'actions',
+        'checks',
+        'inseq',
+    )
+    optionTypes = {
+        'trigger': text2Trigger,
+        'paused': toBool,
+        'threshold': int,
+        'retries': int,
+        'priority': int,
+        'failAction': toBool,
+        'passAction': toBool,
+        'timezone': getZone,
+        'hostname': toHostname,
+        'port': int,
+        'tls': toBool,
+        'selfsigned': toBool,
+        'level': int,
+        'timeout': int,
+        'temperature': int,
+        'reqName': str,
+        'reqPath': str,
+        'reqType': str,
+        'probe': str,
+        'hostkey': str,
+        'serialPort': str,
+        'volume': str,
+        'reqTcp': toBool,
+        'beeper': toBool,
+        'hysteresis': int,
+    }
+    inseq = {}
+    hdr = None
+    dat = []
+    cfg = {'checks': {}}
+    cr = csv.reader(csvFile)
+
+    # read in csv rows to intermediate key:value with converted values
+    for r in cr:
+        if hdr is None:
+            # assume first row is header
+            hdr = [c.strip() for c in r]
+            if 'name' not in hdr or 'checkType' not in hdr:
+                _log.error('CSV missing required columns: name, checkType')
+                raise RuntimeError(
+                    'CSV missing required headers: name, checkType')
+        else:
+            count = 0
+            chk = {}
+            for c in r:
+                c = c.strip()
+                if c != '':
+                    key = hdr[count]
+                    val = c
+                    if key in optionTypes:
+                        val = optionTypes[key](c)
+                    chk[key] = val
+                count += 1
+            if chk['checkType'] == 'sequence':
+                inseq[chk['name']] = []
+            dat.append(chk)
+
+    # convert intermediate options into check configs
+    for chk in dat:
+        checkName = chk['name']
+        checkType = chk['checkType']
+        checkCfg = {"type": checkType}
+        for key in checkOpts:
+            if key in chk:
+                checkCfg[key] = chk[key]
+        if 'depends' in chk:
+            checkCfg['depends'] = []
+            for dep in chk['depends'].split(','):
+                dep = dep.strip()
+                if dep:
+                    checkCfg['depends'].append(dep)
+        if 'actions' in chk:
+            checkCfg['actions'] = []
+            for dep in chk['actions'].split(','):
+                dep = dep.strip()
+                if dep:
+                    checkCfg['actions'].append(dep)
+        checkCfg['options'] = {}
+        for key in chk:
+            if key not in specialOpts and key not in checkOpts:
+                checkCfg['options'][key] = chk[key]
+        if 'checks' in chk:
+            checkCfg['options']['checks'] = []
+            for dep in chk['checks'].split(','):
+                dep = dep.strip()
+                if dep:
+                    checkCfg['options']['checks'].append(dep)
+        if 'inseq' in chk:
+            checkCfg['inseq'] = []
+            for dep in chk['inseq'].split(','):
+                dep = dep.strip()
+                if dep:
+                    checkCfg['inseq'].append(dep)
+        cfg['checks'][checkName] = checkCfg
+    _log.debug('Read %d check entries from CSV file', len(cfg['checks']))
+    return cfg
+
+
+def mergeCsv(path, config, csvFilename):
+    """Import checks from csv file and merge with site config"""
+    importFilename = os.path.realpath(csvFilename)
+    cfgFilename = os.path.join(path, config)
+    if os.path.samefile(cfgFilename, importFilename):
+        _log.warning('Ignored CSV import from existing config')
+        return
+    if os.path.exists(importFilename):
+        _log.info('Importing checks from CSV %r', importFilename)
+        try:
+            importConf = None
+            with open(importFilename) as f:
+                importConf = readCsv(f)
+            cfgConf = None
+            with open(cfgFilename) as f:
+                cfgConf = json.load(f)
+            if mergeCfg(importConf, cfgConf):
+                _log.info('Saving updated config')
+                tmpName = None
+                if os.path.exists(cfgFilename):
+                    tmpName = cfgFilename + token_hex(6)
+                    os.link(cfgFilename, tmpName)
+                with SaveFile(cfgFilename) as f:
+                    json.dump(cfgConf, f, indent=1)
+                if tmpName is not None:
+                    os.rename(tmpName, cfgFilename + '.bak')
+            else:
+                _log.warning('No updates imported')
+        except Exception as e:
+            _log.warning('Ignored invalid import, %s: %s',
+                         e.__class__.__name__, e)
+            raise e
+    else:
+        _log.warning('CSV checks import file not found, ignored')
+
+
+def mergeCfg(importConf, cfgConf):
+    """Copy values from importConf dict to cfgConf dict."""
+    doSave = False
+    if 'timezone' in importConf:
+        _log.info('Imported timezone')
+        cfgConf['timezone'] = importConf['timezone']
+        doSave = True
+    if 'webui' in importConf and importConf['webui'] is not None:
+        if 'webui' not in cfgConf or not isinstance(cfgConf['webui'], dict):
+            cfgConf['webui'] = {}
+        dst = cfgConf['webui']
+        src = importConf['webui']
+        for key in src:
+            if key == 'users':
+                if 'users' not in dst or not isinstance(dst['users'], dict):
+                    dst['users'] = {}
+                for user in src['users']:
+                    if user == defaults.ADMINUSER and defaults.ADMINUSER in dst[
+                            'users']:
+                        _log.warning('Admin user not updated')
+                    else:
+                        dst['users'][user] = src['users'][user]
+            else:
+                dst[key] = src[key]
+        _log.info('Imported webui config')
+        doSave = True
+    if 'mqtt' in importConf:
+        if 'mqtt' not in cfgConf:
+            cfgConf['mqtt'] = {}
+        dst = cfgConf['mqtt']
+        src = importConf['mqtt']
+        for key in src:
+            dst[key] = src[key]
+        _log.info('Imported mqtt config')
+        doSave = True
+    if 'actions' in importConf:
+        for action in importConf['actions']:
+            if action not in cfgConf['actions']:
+                cfgConf['actions'][action] = {}
+            destAction = cfgConf['actions'][action]
+            srcAction = importConf['actions'][action]
+            if 'type' in srcAction:
+                destAction['type'] = srcAction['type']
+            if 'options' in srcAction:
+                if 'options' not in destAction:
+                    destAction['options'] = {}
+                for key in srcAction['options']:
+                    destAction['options'][key] = srcAction['options'][key]
+            _log.info('Imported action: %s', action)
+            doSave = True
+    inseq = {}
+    if 'checks' in importConf:
+        for checkName in importConf['checks']:
+            if checkName not in cfgConf['checks']:
+                cfgConf['checks'][checkName] = {}
+            destCheck = cfgConf['checks'][checkName]
+            srcCheck = importConf['checks'][checkName]
+            for key in srcCheck:
+                if key != 'data' and key != 'inseq':
+                    destCheck[key] = srcCheck[key]
+            if 'inseq' in srcCheck:
+                for seqName in srcCheck['inseq']:
+                    if seqName:
+                        if seqName not in inseq:
+                            inseq[seqName] = []
+                    if checkName not in inseq[seqName]:
+                        inseq[seqName].append(checkName)
+            _log.info('Imported check: %s', checkName)
+            doSave = True
+    for seqName in inseq:
+        if seqName in cfgConf['checks']:
+            seq = cfgConf['checks'][seqName]
+            if seq['type'] == 'sequence':
+                if 'checks' not in seq['options']:
+                    seq['options']['checks'] = []
+                for checkName in inseq[seqName]:
+                    if checkName not in seq['options']['checks']:
+                        seq['options']['checks'].append(checkName)
+                        _log.debug('Added %s to sequence %s', checkName,
+                                   seqName)
+                        doSave = True
+            else:
+                _log.warning('Named inseq not a sequence:  %s', seqName)
+        else:
+            _log.warning('Ignored unknown sequence %s', seqName)
+    return doSave
+
+
 def mergeConfig(path, config, option):
     """Merge selected values from option into config."""
     importFilename = os.path.realpath(option)
@@ -312,76 +594,13 @@ def mergeConfig(path, config, option):
     if os.path.exists(importFilename):
         _log.info('Importing config from %r', importFilename)
         try:
-            doSave = False
             importConf = None
             with open(importFilename) as f:
                 importConf = json.load(f)
             cfgConf = None
             with open(cfgFilename) as f:
                 cfgConf = json.load(f)
-            if 'timezone' in importConf:
-                _log.info('Imported timezone')
-                cfgConf['timezone'] = importConf['timezone']
-                doSave = True
-            if 'webui' in importConf and importConf['webui'] is not None:
-                if 'webui' not in cfgConf or not isinstance(
-                        cfgConf['webui'], dict):
-                    cfgConf['webui'] = {}
-                dst = cfgConf['webui']
-                src = importConf['webui']
-                for key in src:
-                    if key == 'users':
-                        if 'users' not in dst or not isinstance(
-                                dst['users'], dict):
-                            dst['users'] = {}
-                        for user in src['users']:
-                            if user == defaults.ADMINUSER and defaults.ADMINUSER in dst[
-                                    'users']:
-                                _log.warning('Admin user not updated')
-                            else:
-                                dst['users'][user] = src['users'][user]
-                    else:
-                        dst[key] = src[key]
-                _log.info('Imported webui config')
-                doSave = True
-            if 'mqtt' in importConf:
-                if 'mqtt' not in cfgConf:
-                    cfgConf['mqtt'] = {}
-                dst = cfgConf['mqtt']
-                src = importConf['mqtt']
-                for key in src:
-                    dst[key] = src[key]
-                _log.info('Imported mqtt config')
-                doSave = True
-            if 'actions' in importConf:
-                for action in importConf['actions']:
-                    if action not in cfgConf['actions']:
-                        cfgConf['actions'][action] = {}
-                    destAction = cfgConf['actions'][action]
-                    srcAction = importConf['actions'][action]
-                    if 'type' in srcAction:
-                        destAction['type'] = srcAction['type']
-                    if 'options' in srcAction:
-                        if 'options' not in destAction:
-                            destAction['options'] = {}
-                        for key in srcAction['options']:
-                            destAction['options'][key] = srcAction['options'][
-                                key]
-                    _log.info('Imported action: %s', action)
-                    doSave = True
-            if 'checks' in importConf:
-                for checkName in importConf['checks']:
-                    if checkName not in cfgConf['checks']:
-                        cfgConf['checks'][checkName] = {}
-                    destCheck = cfgConf['checks'][checkName]
-                    srcCheck = importConf['checks'][checkName]
-                    for key in srcCheck:
-                        if key != 'data':
-                            destCheck[key] = srcCheck[key]
-                    _log.info('Imported check: %s', checkName)
-                    doSave = True
-
-            if doSave:
+            if mergeCfg(importConf, cfgConf):
                 _log.info('Saving updated config')
                 tmpName = None
                 if os.path.exists(cfgFilename):
@@ -627,6 +846,20 @@ def deleteCheck(site, checkName):
             c.del_depend(checkName)
             if c.checkType == 'sequence':
                 c.del_check(checkName)
+
+        topic = None
+        if checkName in site.remoteTopics:
+            topic = site.remoteTopics[checkName]
+            _log.debug('Clear retain for remote check %s->%s', checkName,
+                       topic)
+            site.clearMsg(topic=topic)
+            del site.remoteTopics[checkName]
+        if tempCheck.publish:
+            if tempCheck.publish != topic:
+                _log.debug('Clear retain for check with publish %s->%s',
+                           checkName, tempCheck.publish)
+                site.clearMsg(topic=tempCheck.publish)
+
     # refresh site map
     site.checkMap(True)
     _log.warning('Deleted check %s from site', checkName)

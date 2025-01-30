@@ -478,16 +478,7 @@ class ActionHandler(BaseHandler):
         newConf['options'] = {}
         temp = self.get_argument('hostname', '')
         if temp:
-            if util.isMacAddr(temp):
-                # assume EUI-64 LL address desired
-                temp = util.mac2ll(temp)
-            elif ':' in temp:
-                # assume ipv6 - check for LL without scope
-                temp = util.lladdscope(temp)
-            else:
-                # probably hostname or v4
-                pass
-            newConf['options']['hostname'] = temp
+            newConf['options']['hostname'] = util.toHostname(temp)
         for key in [
                 'sender',
                 'apikey',
@@ -657,16 +648,7 @@ class CheckHandler(BaseHandler):
         # hostname/ip
         temp = self.get_argument('hostname', '')
         if temp:
-            if util.isMacAddr(temp):
-                # assume EUI-64 LL address desired
-                temp = util.mac2ll(temp)
-            elif ':' in temp:
-                # assume ipv6 - check for LL without scope
-                temp = util.lladdscope(temp)
-            else:
-                # probably hostname or v4
-                pass
-            newConf['options']['hostname'] = temp
+            newConf['options']['hostname'] = util.toHostname(temp)
         # string options
         for key in [
                 'serialPort',

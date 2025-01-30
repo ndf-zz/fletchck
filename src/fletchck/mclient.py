@@ -19,7 +19,8 @@ def fromJson(payload=None):
     """Return message payload decoded from json, or None."""
     ret = None
     try:
-        ret = json.loads(payload)
+        if payload:
+            ret = json.loads(payload)
     except Exception as e:
         _log.warning('%s decoding JSON payload: %s', e.__class__.__name__, e)
     return ret

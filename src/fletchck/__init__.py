@@ -44,7 +44,8 @@ class FletchSite():
         self.scheduler = None
         self.actions = None
         self.checks = None
-        self.remotes = None
+        self.remotes = {}
+        self.remoteTopics = {}
         self.webCfg = None
         self.mqttCfg = None
 
@@ -233,7 +234,12 @@ class FletchSite():
         if self.configFile is None:
             self.configFile = defaults.CONFIGPATH
         if options.merge:
-            util.mergeConfig(self.base, self.configFile, options.merge)
+            if options.merge.lower().endswith('csv'):
+                # assume CSV
+                util.mergeCsv(self.base, self.configFile, options.merge)
+            else:
+                # assume JSON
+                util.mergeConfig(self.base, self.configFile, options.merge)
         return doStart
 
     def getNextRun(self, checkName):
@@ -260,6 +266,7 @@ class FletchSite():
                 remoteId = name
                 name = self.remotes[remoteId]
                 _log.debug('Using remoteId=%r for check %r', remoteId, name)
+            self.remoteTopics[name] = topic
             checkType = defaults.getOpt('type', ob, str, None)
             data = defaults.getOpt('data', ob, dict, None)
             if name and checkType and data:
@@ -280,6 +287,12 @@ class FletchSite():
         """MQTT publish obj to the nominated topic"""
         if self._mqtt is not None:
             self._mqtt.publish_json(topic=topic, obj=obj)
+
+    def clearMsg(self, topic):
+        """MQTT publish NULL with retain set to the nominated topic"""
+        if self._mqtt is not None:
+            _log.debug('Sending NULL to topic=%s', topic)
+            self._mqtt.publish(topic=topic, retain=True)
 
     def getStatus(self):
         status = {
