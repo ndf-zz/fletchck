@@ -104,7 +104,7 @@ class Application(tornado.web.Application):
             (r"/status", StatusHandler, dict(site=site)),
             (r"/logout", AuthLogoutHandler, dict(site=site)),
         ]
-        templateLoader = PackageLoader(whitespace='all')
+        templateLoader = PackageLoader(whitespace='oneline')
         settings = dict(
             site_version=defaults.VERSION,
             site_name=site.webCfg['name'],

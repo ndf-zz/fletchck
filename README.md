@@ -11,21 +11,24 @@ as they transition from pass to fail or vice-versa.
 Configuration is via JSON file or an in-built web
 user interface.
 
-The following checks are supported:
+The following checks are provided:
 
+   - cert: Check TLS certificate validity or self-signed expiry
    - smtp: SMTP with optional starttls
    - submit: SMTP-over-SSL/Submissions
    - imap: IMAP4-SSL mailbox
-   - https: HTTP request
-   - dns: DNS query
-   - cert: Check TLS certificate validity and/or expiry
-   - ssh: SSH pre-auth connection with optional hostkey check
-   - disk: Disk space check, fails when usage exceeds percentage
+   - https: HTTP/HTTPS request
+   - ssh: SSH pre-auth connection with hostkey check
+   - sequence: A sequence of checks, fails if any one member check fails
    - ups: Monitor a "QS" serial UPS status
    - upstest: Perform a "QS" serial UPS self-test and report faults
    - remote: Tracks the state of a check running on a remote instance
      fletchck over MQTT
-   - sequence: A sequence of checks, fails if any one check fails
+   - disk: Disk space check, fails when usage exceeds percentage
+   - memory: Check free memory space on host system
+   - cpu: Check local average CPU load on host system
+   - temp: Comet temperature probe
+   - dns: DNS query
 
 Service checks that use TLS will verify the service certificate
 and hostname unless the selfsigned option is set.
@@ -35,8 +38,8 @@ the cert check with selfsigned option.
 The following notification actions are supported:
 
    - email: Send an email
-   - sms: Post SMS via SMS Central API
-   - mqtt: Publish a one-shot MQTT message to the configured broker
+   - sms: Post SMS via Cloudkinnekt API
+   - log: Log PASS/FAIL
 
 
 ## Installation
@@ -161,73 +164,16 @@ Example:
 	  "type": "cert",
 	  "passAction": false,
 	  "trigger": { "cron": {"day": 1, "hour": 1} },
-	  "options": { "hostname": "home.place.com", "port": 443 },
+	  "options": { "hostname": "home.place.com", "port": 8443 },
 	  "actions": [ "Tell Alice" ]
 	 }
 	}
 
 Define a single check named "Home Cert" which performs
-a certificate verification check on port 443 of
+a certificate verification check on port 8443 of
 "home.place.com" at 1:00 am on the first of each month,
 and notifies using the action named "Tell Alice" on
 transition to fail.
-
-
-### Example Config
-
-The following complete configuration describes
-a fletchck site with no web ui that runs a set
-of checks for a single site with a web site and
-SMTP, IMAP services behind a router.
-Router connectivity is checked every 5 minutes while
-the other services are checked in a sequence once per hour
-during the day. Failures of the router will trigger
-an sms, while service failures send an email.
-
-	{
-	 "actions": {
-	  "sms-admin": {
-	   "type": "sms",
-	   "options": { "recipient": "+1234234234" }
-	  },
-	  "email-all": {
-	   "type": "email",
-	   "options": {
-	    "hostname": "mail.place.com",
-	    "sender": "monitor@place.com",
-	    "recipients": [ "admin@place.com", "info@place.com" ]
-	   }
-	  }
-	 },
-	 "checks": {
-	  "place-gateway": {
-	   "type": "ssh",
-	   "trigger": { "interval": { "minutes": 5 } },
-	   "options": { "hostname": "gw.place.com" },
-	   "actions": [ "sms-admin" ]
-	  },
-	  "place-svc": {
-	   "type": "sequence",
-	   "trigger": { "cron": { "hour": "9-17", "minute": "0" } },
-	   "options": { "checks": [ "place-email", "place-mbox", "place-web" ] },
-	   "actions": [ "email-all" ]
-	  },
-	  "place-email": {
-	   "type": "smtp",
-	   "options": { "hostname": "mail.place.com" },
-	   "depends": [ "place-gateway" ]
-	  },
-	  "place-mbox": {
-	   "type": "imap",
-	   "options": { "hostname": "mail.place.com" },
-	   "depends": [ "place-gateway" ]
-	  },
-	  "place-web": {
-	   "type": "https",
-	   "options": { "hostname": "place.com" }
-	  }
-	 }
-	}
 
 
 ## Scheduling
@@ -240,7 +186,7 @@ using a plain text whitespace separated list of value/unit pairs.
 
 An interval trigger with an explicit start:
 
-	interval 1 week 2 day 3 hr 5 min 15 sec 2025-06-15 start
+	interval 1 week 2 day 3 hr 5 min 15 sec
 
 A cron trigger with an explicit timezone:
 
@@ -251,8 +197,7 @@ A cron trigger with an explicit timezone:
 
 The check is scheduled to be run at a repeating interval
 of the specified number of weeks, days, hours, minutes
-and seconds. Optionally provide a start time
-to adjust the initial trigger.
+and seconds.
 
 For example, a trigger that runs every 10 minutes:
 
@@ -285,7 +230,6 @@ of the site config. The keys and values are as follows:
 
 key | type | description
 --- | --- | ---
-debug | bool | Include debugging information on web interface
 cert | str | path to TLS certificate
 key | str | path to TLS private key
 host | str | hostname to listen on

@@ -4,7 +4,9 @@
   {% if not status['checks'] %}
    <p class="pt-3 warning">No checks defined.</p>
   {% else %}
-   {% for seqName in site.checkMap() %}
+   {% set checkMap = site.checkMap() %}
+   {% for seqName in checkMap %}
+    {% if seqName is not None or checkMap[seqName] %}
     <table class="table table-hover">
      <thead>
       {% if seqName is not None %}
@@ -13,13 +15,13 @@
         <td class="text-nowrap text-end"><a href="/clone/{{ site.pathQuote(seqName) }}" title="Clone"><img src="{{ static_url("copy.svg") }}" alt="clone" width="16" class="me-2"></a>{% if status['checks'][seqName]['trigger'] %}{% if 'interval' in status['checks'][seqName]['trigger'] %}<a href="/check/{{ site.pathQuote(seqName) }}" title="{{ 'Next run: ' + (site.getNextRun(seqName) or 'N/A') }}"><img src="{{ static_url("clock-history.svg") }}" alt="interval" width="16" class="me-2"></a>{% elif 'cron' in status['checks'][seqName]['trigger'] %}<a href="/check/{{ site.pathQuote(seqName) }}" title="{{ 'Next run: ' + (site.getNextRun(seqName) or 'N/A') }}"><img src="{{ static_url("calendar2-day.svg") }}" alt="cron" width="16" class="me-2"></a>{% end %}{% end %}<a href="/check/{{ site.pathQuote(seqName) }}" title="Edit"><img src="{{ static_url("pencil.svg") }}" alt="edit" width="16" class="me-2"></a><a href="/move/{{ site.pathQuote(seqName) }}?m=up" title="Move up"><img src="{{ static_url("caret-up.svg") }}" alt="move up" width="16" class="me-2"></a><a href="/move/{{ site.pathQuote(seqName) }}" title="Move Down"><img src="{{ static_url("caret-down.svg") }}" alt="move down" width="16" class="me-3"></a>&nbsp;<a href="/check/{{ site.pathQuote(seqName) + '?delete=y' }}" title="Delete"><img src="{{ static_url("x-circle.svg") }}" alt="delete" width="16"></a></td>
        </tr>
       {% else %}
-       {% if site.checkMap()[None] %}
+       {% if checkMap[None] %}
         <tr><th colspan="3">Not Sequenced</th></tr>
        {% end %}
       {% end %}
      </thead>
      <tbody>
-      {% for check in site.checkMap()[seqName] %}
+      {% for check in checkMap[seqName] %}
       <tr {% if status['checks'][check]['failState'] and check not in status['seqs'] %}class="table-warning"{% end %}>
        <td>{{ check }} ({{ status['checks'][check]['checkType'] }})</td>
        <td>{% if site.checks[check].paused %}<img src="{{ static_url("pause-circle.svg") }}" width="16" alt="PAUSED" title="PAUSED" class="me-2">{% elif status['checks'][check]['failState'] %}<img src="{{ static_url("exclamation-triangle.svg") }}" width="16" alt="FAIL" title="FAIL" class="me-2">{{ status['checks'][check]['lastFail'] }}{% elif status['checks'][check]['softFail'] %}<img src="{{ static_url("exclamation-circle.svg") }}" alt="SOFTFAIL" title="SOFTFAIL" width="16" class="me-2">depends on {{ status['checks'][check]['softFail'] }}{% else %}<img src="{{ static_url("check-circle.svg") }}" alt="PASS" title="PASS" width="16" class="me-2">{{ status['checks'][check]['lastPass']}}{% end %}</td>
@@ -28,6 +30,7 @@
       {% end %}
      </tbody>
     </table>
+   {% end %}
    {% end %}
   {% end %}
   <p class="pt-3"><a class="btn btn-primary" href="/check/" title="Add new check to site" role="button">Add Check</a></p>

@@ -1,5 +1,78 @@
 # Changelog
 
+## [1.1.0] 2025-01-31
+
+### Added
+
+  - Add landing page in webui with summary of failing checks
+  - Add facility to reorder checks and sequences from listing page
+  - Add CPU and RAM checks using psutil library
+  - Add check clone function on listing page
+  - Pause check feature
+  - Site configuration edit in webui
+  - Add/remove/edit actions
+  - Add/remove/edit users
+  - Display next run time for checks with triggers in list and edit pages
+  - Add option to merge existing config into site at startup
+  - Add option to import check data from CSV on startup
+  - Convert hostname MAC address to ipv6 LL address
+  - Append scope 2 to unscoped LL ipv6 address
+
+### Changed
+
+  - Replace actions top menu item with site config
+  - Hide retries option on sequence and remote checks
+  - Alow override of web UI port on command line
+  - Don't add dummy action during site --init
+  - Group checks under sequences in check listing
+  - Exclude failing sequences from count of failing checks
+  - Log only last attempt when retries > 1
+  - Include level in sequence logs for passing checks
+  - Update bootstrap to v5.3.3
+  - Update bootstrap icons to v1.11.3
+  - Remove direct priority editing from check editor
+  - Allow optional TLS on https checks
+  - Create check hides all options until name and type are entered
+  - Sequence membership may be edited from check
+  - Clear retained topic when remote check deleted
+  - Use site-wide jitter from defaults for all defined triggers
+  - Interval triggers are scheduled to fire immediately after edit
+
+### Deprecated
+
+### Removed
+
+  - Smscentral apiSms action type
+  - Mqtt one-shot publish action type
+  - Trigger options jitter and start_date
+  - Hard-coded email and sms actions editor
+
+### Fixed
+
+  - Create copy of options when flattening check
+    instead of using reference
+
+### Security
+
+
+## [1.0.7] 2025-01-10
+
+### Added
+
+  - Add new check type 'dns' to query nameserver operation
+  - Allow change of name on remote check entries
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+
 ## [1.0.6] 2024-11-29
 
 ### Added
