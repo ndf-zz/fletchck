@@ -821,6 +821,8 @@ class ConfigHandler(BaseHandler):
                     section='config',
                     site=self._site,
                     showusers=self.current_user == defaults.ADMINUSER,
+                    mqttCfg=self._site.mqttCfg,
+                    webCfg=self._site.webCfg,
                     formErrors=[])
 
     @tornado.web.authenticated
@@ -862,6 +864,8 @@ class ConfigHandler(BaseHandler):
                         else:
                             formErrors.append('Invalid web UI port %r' %
                                               (temp))
+                    else:
+                        formErrors.append('Missing required Web UI port')
 
         enableMqtt = bool(self.get_argument('mqtt.enable', None))
         if enableMqtt:
@@ -909,6 +913,8 @@ class ConfigHandler(BaseHandler):
                         section='config',
                         site=self._site,
                         showusers=self.current_user == defaults.ADMINUSER,
+                        mqttCfg=newCfg['mqtt'],
+                        webCfg=newCfg['webui'],
                         formErrors=formErrors)
             return
 
@@ -920,12 +926,15 @@ class ConfigHandler(BaseHandler):
             self._site.mqttCfg = None
             self._site.reconnectMqtt()
         else:
+            if self._site.mqttCfg is None:
+                self._site.mqttCfg = {}
+                for mkey in defaults.MQTTCONFIG:
+                    self._site.mqttCfg[mkey] = defaults.MQTTCONFIG[mkey]
             for mkey in defaults.MQTTCONFIG:
                 if mkey != 'debug':
                     if self._site.mqttCfg[mkey] != newCfg['mqtt'][mkey]:
                         mqttUpdate = True
                         self._site.mqttCfg[mkey] = newCfg['mqtt'][mkey]
-
             if mqttUpdate:
                 _log.debug('Updating MQTT interface on site')
                 self._site.reconnectMqtt()

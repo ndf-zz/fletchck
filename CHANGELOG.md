@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.1.1] 2025-02-01
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+  - Pass temporary web and mqtt config handles to form when editing
+  - Create default mqtt config when enabled from web interface
+  - Require port to be specified on web interface config
+  - Link UTC to datetime.timezone.utc for Python < 3.11
+
+### Security
+
+
 ## [1.1.0] 2025-01-31
 
 ### Added

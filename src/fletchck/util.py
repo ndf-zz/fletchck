@@ -8,7 +8,9 @@ import csv
 import json
 import struct
 import math
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timedelta, timezone
+# Python < 3.11 workaround for datetime.UTC
+UTC = timezone.utc
 from secrets import randbits, token_hex
 from passlib.hash import argon2 as kdf
 from tempfile import NamedTemporaryFile, mkdtemp

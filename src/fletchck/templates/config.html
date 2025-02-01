@@ -23,7 +23,7 @@
  {% end %}
  <p class="pt-3"><a class="btn btn-primary" href="/action/" title="Add new action to site" role="button">Add Action</a></p>
  </div>
- {% if showusers %}
+ {% if showusers and site.webCfg is not None and 'users' in site.webCfg %}
  <div id="userBody" class="my-3 bg-body-tertiary p-2 rounded">
  <h3>Users</h3>
  <table class="table table-hover">
@@ -54,72 +54,72 @@
  </div>
  <h3>Web Interface</h3>
  <div class="form-floating">
-  <input type="text" class="form-control" name="webui.name" id="webui.name" placeholder="sitename" value="{{ site.webCfg['name'] if site.webCfg is not None else '' }}">
+  <input type="text" class="form-control" name="webui.name" id="webui.name" placeholder="sitename" value="{{ webCfg['name'] if webCfg is not None else '' }}">
   <label for="webui.name" class="form-label">Site Name</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="webui.hostname" id="webui.hostname" placeholder="hostname" value="{{ site.webCfg['hostname'] if site.webCfg is not None else '' }}">
+  <input type="text" class="form-control" name="webui.hostname" id="webui.hostname" placeholder="hostname" value="{{ webCfg['hostname'] if webCfg is not None else '' }}">
   <label for="webui.hostname" class="form-label">Listen on Hostname</label>
  </div>
  <div class="form-floating">
-  <input type="number" min="1" max="65535" class="form-control" name="webui.port" id="webui.port" placeholder="12345" value="{{ site.webCfg['port'] if site.webCfg is not None and site.webCfg['port'] is not None else '' }}"> 
-  <label for="webui.port" class="form-label">Port</label> 
+  <input type="number" min="1" max="65535" class="form-control" name="webui.port" id="webui.port" placeholder="12345" value="{{ webCfg['port'] if webCfg is not None and webCfg['port'] is not None else '' }}">
+  <label for="webui.port" class="form-label">Port (required)</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="webui.cert" id="webui.cert" placeholder="certificate" value="{{ site.webCfg['cert'] if site.webCfg is not None and site.webCfg['cert'] is not None else '' }}">
+  <input type="text" class="form-control" name="webui.cert" id="webui.cert" placeholder="certificate" value="{{ webCfg['cert'] if webCfg is not None and webCfg['cert'] is not None else '' }}">
   <label for="webui.cert" class="form-label">TLS Certificate</label>
  </div>
  <div class="form-floating mb-3">
-  <input type="text" class="form-control" name="webui.key" id="webui.key" placeholder="privkey" value="{{ site.webCfg['key'] if site.webCfg is not None and site.webCfg['key'] is not None else '' }}">
+  <input type="text" class="form-control" name="webui.key" id="webui.key" placeholder="privkey" value="{{ webCfg['key'] if webCfg is not None and webCfg['key'] is not None else '' }}">
   <label for="webui.key" class="form-label">TLS Private Key</label>
  </div>
  <h3>MQTT</h3>
  <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="mqtt.enable" id="mqtt.enable" {{ 'checked' if site.mqttCfg is not None else '' }}>
+  <input class="form-check-input" type="checkbox" value="1" name="mqtt.enable" id="mqtt.enable" {{ 'checked' if mqttCfg is not None else '' }}>
   <label class="form-check-label" for="mqtt.enable">Enable</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.hostname" id="mqtt.hostname" placeholder="hostname" value="{{ site.mqttCfg['hostname'] if site.mqttCfg is not None else '' }}">
+  <input type="text" class="form-control" name="mqtt.hostname" id="mqtt.hostname" placeholder="hostname" value="{{ mqttCfg['hostname'] if mqttCfg is not None else '' }}">
   <label for="mqtt.hostname" class="form-label">Broker Hostname</label>
  </div>
  <div class="form-floating">
-  <input type="number" min="1" max="65535" class="form-control" name="mqtt.port" id="mqtt.port" placeholder="12345" value="{{ site.mqttCfg['port'] if site.mqttCfg is not None and site.mqttCfg['port'] is not None else '' }}"> 
-  <label for="mqtt.port" class="form-label">Port</label> 
+  <input type="number" min="1" max="65535" class="form-control" name="mqtt.port" id="mqtt.port" placeholder="12345" value="{{ mqttCfg['port'] if mqttCfg is not None and mqttCfg['port'] is not None else '' }}">
+  <label for="mqtt.port" class="form-label">Port (optional)</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.username" id="mqtt.username" placeholder="username" value="{{ site.mqttCfg['username'] if site.mqttCfg is not None and site.mqttCfg['username'] is not None else '' }}">
+  <input type="text" class="form-control" name="mqtt.username" id="mqtt.username" placeholder="username" value="{{ mqttCfg['username'] if mqttCfg is not None and mqttCfg['username'] is not None else '' }}">
   <label for="mqtt.username" class="form-label">Username</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.password" id="mqtt.password" placeholder="password" value="{{ site.mqttCfg['password'] if site.mqttCfg is not None and site.mqttCfg['password'] is not None else '' }}">
+  <input type="text" class="form-control" name="mqtt.password" id="mqtt.password" placeholder="password" value="{{ mqttCfg['password'] if mqttCfg is not None and mqttCfg['password'] is not None else '' }}">
   <label for="mqtt.password" class="form-label">Password</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.clientid" id="mqtt.clientid" placeholder="clientid" value="{{ site.mqttCfg['clientid'] if site.mqttCfg is not None and site.mqttCfg['clientid'] is not None else '' }}">
+  <input type="text" class="form-control" name="mqtt.clientid" id="mqtt.clientid" placeholder="clientid" value="{{ mqttCfg['clientid'] if mqttCfg is not None and mqttCfg['clientid'] is not None else '' }}">
   <label for="mqtt.clientid" class="form-label">Client ID</label>
  </div>
  <div class="form-floating">
-  <input type="text" class="form-control" name="mqtt.basetopic" id="mqtt.basetopic" placeholder="basetopic" value="{{ site.mqttCfg['basetopic'] if site.mqttCfg is not None and site.mqttCfg['basetopic'] is not None else '' }}">
+  <input type="text" class="form-control" name="mqtt.basetopic" id="mqtt.basetopic" placeholder="basetopic" value="{{ mqttCfg['basetopic'] if mqttCfg is not None and mqttCfg['basetopic'] is not None else '' }}">
   <label for="mqtt.basetopic" class="form-label">Remote Check Topic</label>
  </div>
  <div class="form-floating mb-3">
-  <input type="number" max="2" min="0" class="form-control" name="mqtt.qos" id="mqtt.qos" placeholder="1" value="{{ site.mqttCfg['qos'] if site.mqttCfg is not None and site.mqttCfg['qos'] is not None else '' }}"> 
-  <label for="mqtt.qos" class="form-label">QoS</label> 
+  <input type="number" max="2" min="0" class="form-control" name="mqtt.qos" id="mqtt.qos" placeholder="1" value="{{ mqttCfg['qos'] if mqttCfg is not None and mqttCfg['qos'] is not None else '' }}">
+  <label for="mqtt.qos" class="form-label">QoS</label>
  </div>
  <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="mqtt.retain" id="mqtt.retain" {{ 'checked' if site.mqttCfg is not None and site.mqttCfg['retain'] else '' }}>
+  <input class="form-check-input" type="checkbox" value="1" name="mqtt.retain" id="mqtt.retain" {{ 'checked' if mqttCfg is not None and mqttCfg['retain'] else '' }}>
   <label class="form-check-label" for="mqtt.retain">Publish with retain set</label>
  </div>
  <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="mqtt.autoadd" id="mqtt.autoadd" {{ 'checked' if site.mqttCfg is not None and site.mqttCfg['autoadd'] else '' }}>
+  <input class="form-check-input" type="checkbox" value="1" name="mqtt.autoadd" id="mqtt.autoadd" {{ 'checked' if mqttCfg is not None and mqttCfg['autoadd'] else '' }}>
   <label class="form-check-label" for="mqtt.autoadd">Automatically add new remote checks</label>
  </div>
  <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="mqtt.persist" id="mqtt.persist" {{ '' if site.mqttCfg is not None and not site.mqttCfg['persist'] else 'checked' }}>
+  <input class="form-check-input" type="checkbox" value="1" name="mqtt.persist" id="mqtt.persist" {{ '' if mqttCfg is not None and not mqttCfg['persist'] else 'checked' }}>
   <label class="form-check-label" for="mqtt.persist">Persistent connection</label>
  </div>
  <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="mqtt.tls" id="mqtt.tls" {{ '' if site.mqttCfg is not None and not site.mqttCfg['tls'] else 'checked' }}>
+  <input class="form-check-input" type="checkbox" value="1" name="mqtt.tls" id="mqtt.tls" {{ '' if mqttCfg is not None and not mqttCfg['tls'] else 'checked' }}>
   <label class="form-check-label" for="mqtt.tls">TLS</label>
  </div>
  <button class="btn btn-primary py-2 mt-3" type="submit" title="Update site settings">Update</button>

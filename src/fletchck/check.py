@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
 """Machine check classes"""
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
+# Python < 3.11 workaround for datetime.UTC
+UTC = timezone.utc
 from zoneinfo import ZoneInfo
 from dateutil.parser import parse as dateparse
 from . import defaults
