@@ -42,7 +42,7 @@
  <input type="hidden" name="oldName" value="{{ oldName }}">
  <input type="hidden" name="priority" value="{{ check.priority }}">
  <div class="form-floating">
-  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'cpu', 'memory', 'temp', 'ups', 'upstest', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
+  <select id="checkType" name="checkType" class="form-select">{% for checkType in ['ssh', 'smtp', 'submit', 'imap', 'https', 'cert', 'dns', 'disk', 'cpu', 'memory', 'temp', 'ups', 'sequence', 'remote'] %}{% if check.checkType == checkType %}
    <option selected value="{{ checkType }}">{{ checkType }}</option>{% else %}
    <option value="{{ checkType }}">{{ checkType }}</option>{% end %}{% end %}
   </select>
@@ -119,9 +119,9 @@
   <label for="hysteresis" class="form-label">Hysteresis</label>
  </div>
 
- <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'serialPort') }}">
-  <input type="text" class="form-control" name="serialPort" id="serialPort" placeholder="serialPort" value="{{ check.options['serialPort'] if 'serialPort' in check.options else '' }}">
-  <label for="serialPort" class="form-label">Serial Port (ups checks)</label>
+ <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'upsName') }}">
+  <input type="text" class="form-control" name="upsName" id="upsName" placeholder="upsName" value="{{ check.options['upsName'] if 'upsName' in check.options else '' }}">
+  <label for="upsName" class="form-label">UPS Name</label>
  </div>
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'timeout') }}">
@@ -174,10 +174,6 @@
  <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'selfsigned') }}">
   <input class="form-check-input" type="checkbox" value="1" name="selfsigned" id="selfsigned" {{ 'checked' if 'selfsigned' in check.options and check.options['selfsigned'] else '' }}>
   <label class="form-check-label" for="selfsigned">Self-signed TLS certificate</label>
- </div>
- <div class="form-check mb-3{{ site.hideOption(oldName, check.checkType, 'beeper') }}">
-  <input class="form-check-input" type="checkbox" value="1" name="beeper" id="beeper" {{ '' if 'beeper' in check.options and not check.options['beeper'] else 'checked' }}>
-  <label class="form-check-label" for="beeper">Enable UPS Beeper (ups checks)</label>
  </div>
 
  {% if site.actions %}

@@ -651,7 +651,7 @@ class CheckHandler(BaseHandler):
             newConf['options']['hostname'] = util.toHostname(temp)
         # string options
         for key in [
-                'serialPort',
+                'upsName',
                 'probe',
                 'reqType',
                 'reqPath',
@@ -674,13 +674,10 @@ class CheckHandler(BaseHandler):
             temp = self.get_argument(key, '')
             if temp:
                 newConf['options'][key] = int(temp)
-        # tls & beeper default on
+        # tls default on
         temp = self.get_argument('tls', None)
         if not temp:
             newConf['options']['tls'] = False
-        temp = self.get_argument('beeper', None)
-        if not temp:
-            newConf['options']['beeper'] = False
         # selfsigned/dnstcp is default off
         temp = self.get_argument('selfsigned', None)
         if temp:

@@ -14,9 +14,9 @@ from http.client import HTTPSConnection, HTTPConnection
 from paramiko.transport import Transport as SSH
 from threading import Lock
 from cryptography import x509
-from .ups import UpsQsV
 from shutil import disk_usage
 from psutil import virtual_memory, cpu_percent
+from nut2 import PyNUTClient, PyNUTError
 from time import sleep
 import dns.rdatatype
 import dns.name
@@ -31,14 +31,11 @@ except ImportError:
 
 _log = getLogger('fletchck.check')
 _log.setLevel(DEBUG)
-getLogger('paramiko.transport').setLevel(INFO)
+getLogger('paramiko.transport').setLevel(WARNING)
 
 CHECK_TYPES = {}
 _TERA = 1024 * 1024 * 1024 * 1024
 _GIGA = 1024 * 1024 * 1024
-
-# Serial port locks
-_serialLock = {'': Lock()}
 
 # Temporary: Common local timezone labels
 LOCALZONES = {
@@ -649,68 +646,56 @@ class sshCheck(BaseCheck):
 
 
 class upsStatus(BaseCheck):
-    """UPS basic check"""
+    """NUT UPS basic status check"""
 
     def _runCheck(self):
-        serialPort = self.getStrOpt('serialPort', '')
-        if serialPort:
-            if serialPort not in _serialLock:
-                with _serialLock['']:
-                    _serialLock[serialPort] = Lock()
-        beeper = self.getBoolOpt('beeper', True)
+        self.level = None
+        upsName = self.getStrOpt('upsName', 'ups')
+        hostname = self.getStrOpt('hostname', 'localhost')
+        port = self.getIntOpt('port', 3493)
+        timeout = self.getIntOpt('timeout', defaults.UPSTIMEOUT)
 
         failState = True
         try:
-            _log.debug('Waiting for serialport')
-            with _serialLock[serialPort]:
-                u = UpsQsV(serialPort)
-                u.setBeeper(beeper)
-                self.log.append('Load: %d%%, Battery: %0.1fV' %
-                                (u.load, u.battery))
-                self.log.append(u.getInfo(update=False))
-                if u.lowBattery:
-                    self.log.append('Low battery warning: %0.1fV' %
-                                    (u.battery))
-                failState = (u.error or u.fail or u.fault or u.lowBattery
-                             or u.shutdown)
+            self.log.append('Connecting to UPS via NUT: %s@%s:%d' %
+                            (upsName, hostname, port))
+            with PyNUTClient(host=hostname, port=port, timeout=timeout) as nut:
+                ups = nut.list_vars(upsName)
+                bc = float(ups['battery.charge'])
+                bv = float(ups['battery.voltage'])
+                flags = ups['ups.status'].split()
+                self.level = '%2.0f%%' % (bc, )
+                if 'RB' in flags:
+                    failState = True
+                    self.log.append('Warning: Replace battery')
+                elif 'OB' in flags:
+                    failState = True
+                    self.log.append('Status: On Battery')
+                elif 'OL' in flags:
+                    self.log.append('Status: Online')
+                    failState = False
+                else:
+                    self.log.append('Unknown UPS state')
+                    failState = True
+                self.log.append('Battery: %0.1fV/%0.0f%% Flags: %s' %
+                                (bv, bc, ', '.join(flags)))
+        except PyNUTError as e:
+            if e.args[0] == 'ERR DATA-STALE':
+                _log.debug('%s (%s) %s Not Connected: DATA-STALE Log=%r',
+                           self.name, self.checkType, upsName, self.log)
+                self.log.append('%s Not Connected: DATA-STALE' % (upsName, ))
+            else:
+                _log.debug('%s (%s) %s Connect Error: %s Log=%r', self.name,
+                           self.checkType, upsName, e, self.log)
+                self.log.append('%s Connect Error: %s' % (upsName, e))
+
         except Exception as e:
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
-                       serialPort, e.__class__.__name__, e, self.log)
-            self.log.append('%s %s: %s' %
-                            (serialPort, e.__class__.__name__, e))
+                       upsName, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' % (upsName, e.__class__.__name__, e))
 
-        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType,
-                   serialPort, failState)
-        return failState
-
-
-class upsTest(BaseCheck):
-    """Run a UPS self-test and check result"""
-
-    def _runCheck(self):
-        serialPort = self.getStrOpt('serialPort', '')
-        if serialPort:
-            if serialPort not in _serialLock:
-                with _serialLock['']:
-                    _serialLock[serialPort] = Lock()
-
-        failState = True
-        try:
-            _log.debug('Waiting for serialport')
-            with _serialLock[serialPort]:
-                u = UpsQsV(serialPort)
-                failState, msg = u.runTest()
-                self.log.append(msg)
-                _log.info('%s (%s) %s: %s', self.name, self.checkType,
-                          serialPort, msg)
-        except Exception as e:
-            _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
-                       serialPort, e.__class__.__name__, e, self.log)
-            self.log.append('%s %s: %s' %
-                            (serialPort, e.__class__.__name__, e))
-
-        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType,
-                   serialPort, failState)
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, upsName,
+                   failState)
         return failState
 
 
@@ -1130,7 +1115,6 @@ CHECK_TYPES['https'] = httpsCheck
 CHECK_TYPES['ssh'] = sshCheck
 CHECK_TYPES['sequence'] = sequenceCheck
 CHECK_TYPES['ups'] = upsStatus
-CHECK_TYPES['upstest'] = upsTest
 CHECK_TYPES['remote'] = remoteCheck
 CHECK_TYPES['disk'] = diskCheck
 CHECK_TYPES['memory'] = memoryCheck

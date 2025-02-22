@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.1.2]
+
+### Added
+
+   - NUT UPS client check
+
+### Changed
+
+   - Suppress apsched INFO logs
+   - Suppress paramiko INFO logs
+
+### Deprecated
+
+### Removed
+
+    - QS serial UPS checks
+
+### Fixed
+
+### Security
+
+
 ## [1.1.1] 2025-02-01
 
 ### Added

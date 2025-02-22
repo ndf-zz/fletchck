@@ -26,8 +26,8 @@ from apscheduler.triggers.cron import CronTrigger
 
 _log = getLogger('fletchck.util')
 _log.setLevel(DEBUG)
-getLogger('apscheduler.executors').setLevel(INFO)
-getLogger('apscheduler.executors.default').setLevel(INFO)
+getLogger('apscheduler.executors').setLevel(WARNING)
+getLogger('apscheduler.executors.default').setLevel(WARNING)
 
 _INTTRIGKEYS = {
     'weeks',
@@ -384,10 +384,9 @@ def readCsv(csvFile):
         'reqType': str,
         'probe': str,
         'hostkey': str,
-        'serialPort': str,
+        'upsName': str,
         'volume': str,
         'reqTcp': toBool,
-        'beeper': toBool,
         'hysteresis': int,
     }
     inseq = {}

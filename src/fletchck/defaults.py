@@ -89,6 +89,9 @@ HTTPSTIMEOUT = 10
 # SSH check timeout
 SSHTIMEOUT = 5
 
+# UPS check timeout
+UPSTIMEOUT = 5
+
 # Certificate check timeout
 CERTTIMEOUT = 5
 
@@ -146,55 +149,52 @@ SENDMAIL = '/usr/lib/sendmail'
 # Hide options for named check types
 HIDEOPTIONS = {
     'cert': {
-        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'reqType',
-        'reqPath', 'checks', 'tls', 'beeper', 'temperature', 'hysteresis',
-        'reqTcp', 'reqName'
+        'remoteId', 'level', 'volume', 'upsName', 'hostkey', 'reqType',
+        'reqPath', 'checks', 'tls', 'temperature', 'hysteresis', 'reqTcp',
+        'reqName'
     },
     'submit': {
-        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'beeper', 'tls', 'temperature',
-        'hysteresis', 'reqTcp', 'reqName'
-    },
-    'smtp': {
-        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'beeper', 'temperature', 'hysteresis',
+        'remoteId', 'level', 'volume', 'upsName', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'tls', 'temperature', 'hysteresis',
         'reqTcp', 'reqName'
     },
+    'smtp': {
+        'remoteId', 'level', 'volume', 'upsName', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'temperature', 'hysteresis', 'reqTcp',
+        'reqName'
+    },
     'imap': {
-        'remoteId', 'level', 'volume', 'serialPort', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'beeper', 'tls', 'temperature',
-        'hysteresis', 'reqTcp', 'reqName'
+        'remoteId', 'level', 'volume', 'upsName', 'hostkey', 'probe',
+        'reqType', 'reqPath', 'checks', 'tls', 'temperature', 'hysteresis',
+        'reqTcp', 'reqName'
     },
     'dns': {
-        'remoteId', 'level', 'volume', 'serialPort', 'probe', 'hostkey',
-        'reqPath', 'checks', 'beeper', 'tls', 'temperature', 'hysteresis',
-        'selfsigned'
+        'remoteId', 'level', 'volume', 'upsName', 'probe', 'hostkey',
+        'reqPath', 'checks', 'tls', 'temperature', 'hysteresis', 'selfsigned'
     },
     'https': {
-        'remoteId', 'level', 'volume', 'serialPort', 'probe', 'hostkey',
-        'checks', 'beeper', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
+        'remoteId', 'level', 'volume', 'upsName', 'probe', 'hostkey', 'checks',
+        'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'ssh': {
-        'remoteId', 'level', 'volume', 'serialPort', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'beeper', 'temperature',
-        'hysteresis', 'reqTcp', 'reqName'
+        'remoteId', 'level', 'volume', 'upsName', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'temperature', 'hysteresis',
+        'reqTcp', 'reqName'
     },
     'sequence': {
         'retries', 'remoteId', 'level', 'volume', 'hostname', 'port',
-        'serialPort', 'timeout', 'hostkey', 'probe', 'reqType', 'reqPath',
-        'selfsigned', 'tls', 'beeper', 'temperature', 'hysteresis', 'reqTcp',
-        'reqName'
+        'upsName', 'timeout', 'hostkey', 'probe', 'reqType', 'reqPath',
+        'selfsigned', 'tls', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'remote': {
         'retries', 'publish', 'level', 'volume', 'hostname', 'port', 'hostkey',
         'probe', 'reqType', 'reqPath', 'checks', 'selfsigned', 'tls',
-        'serialPort', 'beeper', 'temperature', 'hysteresis', 'reqTcp',
-        'reqName'
+        'upsName', 'temperature', 'hysteresis', 'reqTcp', 'reqName'
     },
     'disk': {
         'remoteId', 'hostname', 'port', 'hostkey', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'serialPort',
-        'beeper', 'temperature', 'reqTcp', 'reqName'
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'upsName',
+        'temperature', 'reqTcp', 'reqName'
     },
     'cpu': {
         'remoteId',
@@ -208,8 +208,7 @@ HIDEOPTIONS = {
         'selfsigned',
         'tls',
         'timeout',
-        'serialPort',
-        'beeper',
+        'upsName',
         'temperature',
         'reqTcp',
         'reqName',
@@ -227,8 +226,7 @@ HIDEOPTIONS = {
         'selfsigned',
         'tls',
         'timeout',
-        'serialPort',
-        'beeper',
+        'upsName',
         'temperature',
         'reqTcp',
         'reqName',
@@ -236,18 +234,13 @@ HIDEOPTIONS = {
     },
     'temp': {
         'remoteId', 'hostkey', 'level', 'volume', 'probe', 'reqType',
-        'reqPath', 'checks', 'selfsigned', 'tls', 'serialPort', 'beeper',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'upsName'
         'reqTcp', 'reqName'
     },
     'ups': {
-        'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
-        'temperature', 'hysteresis', 'reqTcp', 'reqName'
-    },
-    'upstest': {
-        'remoteId', 'level', 'volume', 'hostname', 'port', 'hostkey', 'probe',
-        'reqType', 'reqPath', 'checks', 'selfsigned', 'tls', 'timeout',
-        'temperature', 'hysteresis', 'reqTcp', 'reqName'
+        'remoteId', 'level', 'volume', 'hostkey', 'probe', 'reqType',
+        'reqPath', 'checks', 'selfsigned', 'tls', 'timeout', 'temperature',
+        'hysteresis', 'reqTcp', 'reqName'
     },
     'action.email': {
         'url',
