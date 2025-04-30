@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fletchck"
-version = "1.1.2a3"
+version = "1.1.2a4"
 description = "Machine monitor"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -30,7 +30,7 @@ dependencies = [
     "paho-mqtt>=2.1",
     "python-dateutil>=2.9",
     "dnspython>=2.7",
-    "psutil>=6.1",
+    "psutil>=5.4",
     "nut2",
 ]
 

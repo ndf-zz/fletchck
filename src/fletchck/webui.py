@@ -666,7 +666,7 @@ class CheckHandler(BaseHandler):
         temp = self.get_argument('timezone', '')
         if temp:
             newConf['options']['timezone'] = temp
-            zinf = util.check.getZone(temp)
+            zinf = util.getZone(temp)
             if zinf is None:
                 formErrors.append('Invalid timezone %r' % (temp))
         # int options
@@ -828,7 +828,7 @@ class ConfigHandler(BaseHandler):
         tzUpdate = False
         temp = self.get_argument('timezone', '')
         if temp:
-            zinf = util.check.getZone(temp)
+            zinf = util.getZone(temp)
             if zinf is not None:
                 if self._site.timezone != zinf:
                     tzUpdate = True

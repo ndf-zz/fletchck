@@ -973,6 +973,7 @@ def loadSite(site):
     """Load and initialise site"""
     cfg = None
     try:
+        _log.debug('Loading site')
         srcCfg = None
         with open(site.configFile) as f:
             srcCfg = json.load(f)
@@ -981,6 +982,7 @@ def loadSite(site):
             site.base = srcCfg['base']
 
         if 'timezone' in srcCfg and isinstance(srcCfg['timezone'], str):
+            _log.debug('Set timezone = %r', srcCfg['timezone'])
             site.timezone = getZone(srcCfg['timezone'])
 
         if 'webui' in srcCfg and isinstance(srcCfg['webui'], dict):

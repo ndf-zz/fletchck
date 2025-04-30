@@ -43,6 +43,7 @@ LOCALZONES = {
     "AEDT": +39600,
     "ACST": +34200,
     "ACDT": +37800,
+    "AWST": +28800,
 }
 
 
