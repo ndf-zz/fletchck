@@ -1,25 +1,27 @@
 # Changelog
 
-## [1.1.2]
+## [1.1.2] 2025-05-02
 
 ### Added
 
    - NUT UPS client check
+   - Icon option for sms and email actions
 
 ### Changed
 
    - Suppress apsched INFO logs
    - Suppress paramiko INFO logs
-
-### Deprecated
+   - Prune volatile log around 100 entries
 
 ### Removed
 
-    - QS serial UPS checks
+   - QS serial UPS checks
 
 ### Fixed
 
-### Security
+   - Allow sms config without API key
+   - Fix import to empty config
+   - Fix typo in webui timezone lookup
 
 
 ## [1.1.1] 2025-02-01
