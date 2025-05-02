@@ -19,7 +19,7 @@ from subprocess import run
 from ipaddress import IPv6Address
 from . import defaults
 from .action import loadAction
-from .check import loadCheck, getZone, BaseCheck, timeString
+from .check import loadCheck, getZone, BaseCheck, timeString, CHECK_TYPES
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
@@ -416,9 +416,14 @@ def readCsv(csvFile):
                         val = optionTypes[key](c)
                     chk[key] = val
                 count += 1
-            if chk['checkType'] == 'sequence':
-                inseq[chk['name']] = []
-            dat.append(chk)
+
+            # configured checks require name and type
+            if 'name' in chk and chk['name']:
+                if 'checkType' in chk and chk['checkType']:
+                    if chk['checkType'] in CHECK_TYPES:
+                        if chk['checkType'] == 'sequence':
+                            inseq[chk['name']] = []
+                        dat.append(chk)
 
     # convert intermediate options into check configs
     for chk in dat:
@@ -533,6 +538,8 @@ def mergeCfg(importConf, cfgConf):
         _log.info('Imported mqtt config')
         doSave = True
     if 'actions' in importConf:
+        if 'actions' not in cfgConf:
+            cfgConf['actions'] = {}
         for action in importConf['actions']:
             if action not in cfgConf['actions']:
                 cfgConf['actions'][action] = {}
@@ -549,6 +556,8 @@ def mergeCfg(importConf, cfgConf):
             doSave = True
     inseq = {}
     if 'checks' in importConf:
+        if 'checks' not in cfgConf:
+            cfgConf['checks'] = {}
         for checkName in importConf['checks']:
             if checkName not in cfgConf['checks']:
                 cfgConf['checks'][checkName] = {}
