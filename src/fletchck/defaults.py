@@ -2,10 +2,13 @@
 """Site defaults"""
 
 # Version String
-VERSION = '1.1.0'
+VERSION = '1.1.2'
 
 # Default application vanity label
 APPNAME = 'Fletchck'
+
+# Default application vanity icon "dog"
+APPICON = '\U0001f436'
 
 # Hostname or IP to listen on
 HOSTNAME = 'localhost'
@@ -54,6 +57,9 @@ MQTTCONFIG = {
 
 # Format for the volatile log
 LOGFORMAT = '%(asctime)s %(message)s'
+
+# Maximum entries to keep in the volatile log
+LOGMAX = 100
 
 # Site CSP
 CSP = "frame-ancestors 'none'; img-src data: 'self'; default-src 'self'"

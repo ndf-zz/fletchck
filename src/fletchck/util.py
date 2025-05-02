@@ -123,8 +123,9 @@ class LogHandler(Handler):
         """Append record to log and prune early entries"""
         msg = self.format(record)
         self.site.log.append(msg)
-        if len(self.site.log) > 200:
-            del (self.site.log[0:10])
+        if len(self.site.log) > 1.2 * defaults.LOGMAX:
+            prune = int(0.8 * defaults.LOGMAX)
+            del (self.site.log[0:-prune])
 
 
 def toBool(boolstr):
