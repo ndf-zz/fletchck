@@ -67,6 +67,10 @@
   <input type="text" class="form-control" name="site" id="site" placeholder="site" value="{{ curAction.options['site'] if 'site' in curAction.options else '' }}">
   <label for="site" class="form-label">Site Name</label>
  </div>
+ <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'icon') }}">
+  <input type="text" class="form-control" name="icon" id="icon" placeholder="site" value="{{ curAction.options['icon'] if 'icon' in curAction.options else '' }}">
+  <label for="icon" class="form-label">Site Icon</label>
+ </div>
  <div class="form-floating{{ site.hideOption(oldName, 'action.' + curAction.actionType, 'fallback') }}">
   <input type="text" class="form-control" name="fallback" id="fallback" placeholder="fallback" value="{{ curAction.options['fallback'] if 'fallback' in curAction.options else '' }}">
   <label for="fallback" class="form-label">Fallback Mailer</label>

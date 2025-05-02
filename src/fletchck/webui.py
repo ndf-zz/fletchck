@@ -486,6 +486,7 @@ class ActionHandler(BaseHandler):
                 'username',
                 'password',
                 'site',
+                'icon',
         ]:
             temp = self.get_argument(key, '')
             if temp:

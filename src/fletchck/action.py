@@ -87,14 +87,16 @@ class sendEmail(BaseAction):
 
     def _notify(self, source):
         site = self.getStrOpt('site', defaults.APPNAME)
+        icon = self.getStrOpt('icon', defaults.APPNAME)
 
+        okstr = '\n%s\U0001F44D' % (icon, )
         subject = "[%s] %s (%s) in %s state" % (
             site, source.name, source.checkType, source.getState())
         ml = []
         ml.append('%s (%s) in %s state at %s%s' %
                   (source.name, source.checkType, source.getState(),
                    source.lastFail if source.failState else source.lastPass,
-                   '' if source.failState else '\n\U0001f436\U0001F44D'))
+                   '' if source.failState else okstr))
         if source.log:
             ml.append('')
             ml.append('Log:')
@@ -167,16 +169,24 @@ class ckSms(BaseAction):
     """Post SMS via cloudkinnect api"""
 
     def trigger(self, source):
+        site = self.getStrOpt('site', '')
+        if site:
+            site += ' '
+        icon = self.getStrOpt('icon', defaults.APPICON)
         message = '%s: %s\n%s\n%s'
         if source.failState:
-            message = '\U0001f436\U0001f4ac\n%s: %s\n%s\n%s' % (
+            message = '%s%s\U0001f4ac\n%s: %s\n%s\n%s' % (
+                site,
+                icon,
                 source.name,
                 source.getState(),
                 source.getSummary(),
                 source.lastFail,
             )
         else:
-            message = '\U0001f436\U0001F44D\n%s: %s\n%s' % (
+            message = '%s%s\U0001F44D\n%s: %s\n%s' % (
+                site,
+                icon,
                 source.name,
                 source.getState(),
                 source.lastPass,
@@ -199,14 +209,14 @@ class ckSms(BaseAction):
                 'text': message
             })
             try:
-                response = httpClient.fetch(
-                    url,
-                    method='POST',
-                    headers={
-                        'Authorization': 'Bearer ' + apikey,
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body=postBody)
+                hdrs = {'Content-Type': 'application/x-www-form-urlencoded'}
+                if apikey:
+                    hdrs['Authorization'] = 'Bearer ' + apikey
+
+                response = httpClient.fetch(url,
+                                            method='POST',
+                                            headers=hdrs,
+                                            body=postBody)
                 if response.code == 200:
                     recipients = None
                 else:
