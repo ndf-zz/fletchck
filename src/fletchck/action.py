@@ -192,11 +192,12 @@ class ckSms(BaseAction):
                 source.lastPass,
             )
         sender = self.getStrOpt('sender', 'dedicated')
+        timeout = self.getIntOpt('timeout', defaults.SMSTIMEOUT)
         recipients = [i for i in self.getListOpt('recipients', [])]
         url = self.getStrOpt('url', defaults.CKURL)
         apikey = self.getStrOpt('apikey')
 
-        httpClient = HTTPClient()
+        httpClient = HTTPClient(defaults={'request_timeout': timeout})
         failCount = 0
         while recipients and failCount < defaults.ACTIONTRIES:
             recipient = ','.join(recipients).replace('+', '')

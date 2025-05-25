@@ -2,7 +2,7 @@
 """Site defaults"""
 
 # Version String
-VERSION = '1.1.2'
+VERSION = '1.1.3'
 
 # Default application vanity label
 APPNAME = 'Fletchck'
@@ -139,6 +139,9 @@ TEMPLEVEL = 50
 
 # Hysteresis for temp checks (degrees C)
 TEMPHYSTERESIS = 2
+
+# Default SMS submit timeout
+SMSTIMEOUT = 5
 
 # POST Endpoint for SMS Central API
 SMSCENTRALURL = 'https://my.smscentral.com.au/api/v3.2'
