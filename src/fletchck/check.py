@@ -225,6 +225,7 @@ class BaseCheck():
                 _log.info('%s (%s) SOFTFAIL (depends=%s) %s', self.name,
                           self.checkType, d, thisTime)
                 self.log = ['SOFTFAIL (depends=%s)' % (d)]
+                self.failState = True
                 return True
 
         self.oldLog = self.log
@@ -1063,7 +1064,7 @@ class sequenceCheck(BaseCheck):
         return ret
 
     def _runCheck(self):
-        self.softfail = set()
+        self.softFails.clear()
         self.levels = {}
         failChecks = set()
         aux = []
