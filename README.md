@@ -13,15 +13,14 @@ user interface.
 
 The following checks are provided:
 
-   - cert: Check TLS certificate validity or self-signed expiry
+   - cert: Check TLS certificate validity or expiry of a self-signed cert
    - smtp: SMTP with optional starttls
    - submit: SMTP-over-SSL/Submissions
    - imap: IMAP4-SSL mailbox
    - https: HTTP/HTTPS request
    - ssh: SSH pre-auth connection with hostkey check
    - sequence: A sequence of checks, fails if any one member check fails
-   - ups: Monitor a "QS" serial UPS status
-   - upstest: Perform a "QS" serial UPS self-test and report faults
+   - ups: Monitor UPS via Nut
    - remote: Tracks the state of a check running on a remote instance
      fletchck over MQTT
    - disk: Disk space check, fails when usage exceeds percentage
@@ -33,12 +32,12 @@ The following checks are provided:
 Service checks that use TLS will verify the service certificate
 and hostname unless the selfsigned option is set.
 If expiry of a self-signed certificate needs to be checked, use
-the cert check with selfsigned option.
+the cert check with selfsigned option set.
 
 The following notification actions are supported:
 
    - email: Send an email
-   - sms: Post SMS via Cloudkinnekt API
+   - sms: Post SMS via Cloudkinnekt API (http fetch)
    - log: Log PASS/FAIL
 
 

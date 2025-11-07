@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fletchck"
-version = "1.1.2"
+version = "1.1.4a1"
 description = "Machine monitor"
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 keywords = ["system","monitor"]
 authors = [
     {email = "ndf-zz@6-v.org", name = "Nathan Fraser"}
@@ -18,7 +19,6 @@ classifiers = [
     "Topic :: System :: Monitoring",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
     "tornado>=6.3",
@@ -31,7 +31,7 @@ dependencies = [
     "python-dateutil>=2.9",
     "dnspython>=2.7",
     "psutil>=5.4",
-    "nut2",
+    "nut2-notl",
 ]
 
 [project.urls]

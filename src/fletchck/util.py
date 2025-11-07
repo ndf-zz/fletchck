@@ -654,7 +654,7 @@ def initSite(path, webUi=True, webPort=None):
     if webUi:
         siteCfg['webui'] = dict(defaults.WEBUICONFIG)
         if webPort is not None:
-            siteCfg['webui']['por'] = max(min(webPort, 65535), 1)
+            siteCfg['webui']['port'] = max(min(webPort, 65535), 1)
         else:
             siteCfg['webui']['port'] = 30000 + randbits(15)
         mkCert(cfgPath, siteCfg['webui']['hostname'])
@@ -983,7 +983,7 @@ def loadSite(site):
     """Load and initialise site"""
     cfg = None
     try:
-        _log.debug('Loading site')
+        _log.debug('Loading site, working dir=%s', os.getcwd())
         srcCfg = None
         with open(site.configFile) as f:
             srcCfg = json.load(f)
