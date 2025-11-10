@@ -107,7 +107,7 @@
   <label for="mqtt.qos" class="form-label">QoS</label>
  </div>
  <div class="form-check mb-3">
-  <input class="form-check-input" type="checkbox" value="1" name="mqtt.retain" id="mqtt.retain" {{ 'checked' if mqttCfg is not None and mqttCfg['retain'] else '' }}>
+  <input class="form-check-input" type="checkbox" value="1" name="mqtt.retain" id="mqtt.retain" {{ '' if mqttCfg is not None and not mqttCfg['retain'] else 'checked' }}>
   <label class="form-check-label" for="mqtt.retain">Publish with retain set</label>
  </div>
  <div class="form-check mb-3">
