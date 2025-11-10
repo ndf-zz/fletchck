@@ -123,13 +123,13 @@ DISKLEVEL = 90
 DISKHYSTERESIS = 2
 
 # Memory usage threshold (percent)
-MEMORYLEVEL = 95
+MEMORYLEVEL = 85
 
 # Hysteresis for memory checks (percent)
-MEMORYHYSTERESIS = 2
+MEMORYHYSTERESIS = 5
 
 # Average CPU usage threshold (percent)
-CPULEVEL = 75
+CPULEVEL = 80
 
 # Hysteresis for cpu checks (percent)
 CPUHYSTERESIS = 5
