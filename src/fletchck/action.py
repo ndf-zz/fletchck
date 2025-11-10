@@ -90,8 +90,8 @@ class sendEmail(BaseAction):
         icon = self.getStrOpt('icon', defaults.APPNAME)
 
         okstr = '\n%s\U0001F44D' % (icon, )
-        subject = "[%s] %s (%s) in %s state" % (
-            site, source.name, source.checkType, source.getState())
+        subject = "[%s] %s: %s (%s)" % (site, source.getState(), source.name,
+                                        source.checkType)
         ml = []
         ml.append('%s (%s) in %s state at %s%s' %
                   (source.name, source.checkType, source.getState(),
