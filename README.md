@@ -54,7 +54,7 @@ Create a python virtual env, and install from pypi using pip:
 Create a new empty site configuration in the current
 directory with the -init option:
 
-	$ ./venv/bin/fletchck -init
+	$ ./venv/bin/fletchck --init
 
 Open a web browser with the displayed credentials to continue
 setup.

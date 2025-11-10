@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.1.4] 2025-11-10
+
+### Added
+
+### Changed
+
+   - Switch to nut2-notl library to sidestep telnetlib issue
+   - Update bootstrap to v5.3.8
+   - Use system default resolver as default DNS server instead of
+     hardcoded 127 ip
+   - Adjust default levels and hysteresis for cpu, memory and disk
+     checks
+   - Prefix email subject line with PASS/FAIL
+
+
+### Deprecated
+
+### Removed
+
+   - Remove workaround empty __init__.py files from resources dirs
+
+### Fixed
+
+   - Fix internal error on empty static file request
+
+### Security
+
+## [1.1.3] (not released)
+
 ## [1.1.2] 2025-05-02
 
 ### Added
@@ -26,22 +55,12 @@
 
 ## [1.1.1] 2025-02-01
 
-### Added
-
-### Changed
-
-### Deprecated
-
-### Removed
-
 ### Fixed
 
   - Pass temporary web and mqtt config handles to form when editing
   - Create default mqtt config when enabled from web interface
   - Require port to be specified on web interface config
   - Link UTC to datetime.timezone.utc for Python < 3.11
-
-### Security
 
 
 ## [1.1.0] 2025-01-31
@@ -82,8 +101,6 @@
   - Use site-wide jitter from defaults for all defined triggers
   - Interval triggers are scheduled to fire immediately after edit
 
-### Deprecated
-
 ### Removed
 
   - Smscentral apiSms action type
@@ -96,8 +113,6 @@
   - Create copy of options when flattening check
     instead of using reference
 
-### Security
-
 
 ## [1.0.7] 2025-01-10
 
@@ -105,16 +120,6 @@
 
   - Add new check type 'dns' to query nameserver operation
   - Allow change of name on remote check entries
-
-### Changed
-
-### Deprecated
-
-### Removed
-
-### Fixed
-
-### Security
 
 
 ## [1.0.6] 2024-11-29
@@ -132,10 +137,6 @@
   - Adjust sequence summary to show softfail checks with "no entry"
   - Simplify logs and summaries
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
    - Fix unhandled JSON object decode error for remote messages
@@ -144,6 +145,7 @@
 ### Security
 
    - Add strict checking on remote data validation
+
 
 ## [1.0.5] 2024-07-29
 
@@ -162,10 +164,6 @@
    - Alter ssh check to save host key on first run
    - BaseCheck includes a subType for remote checks
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
    - Sequence fail state ordering corrected to match priority
@@ -173,8 +171,6 @@
    - Set fail state before running quit command to avoid false positive
      in imap and smtp checks to servers that drop connections before
      fully replying
-
-### Security
 
 
 ## [1.0.4] - 2024-01-04
@@ -197,6 +193,7 @@
 
    - Fix typo and id errors on html form elements
 
+
 ## [1.0.3] - 2023-10-30
 
 ### Changed
@@ -207,6 +204,7 @@
 
    - Fix timestamp in email notifications
    - Fix typo in manual email test
+
 
 ## [1.0.1] - 2023-10-25
 
@@ -219,6 +217,7 @@
 
    - Fix typo on certificate expiry check
    - Correct option names for https check
+
 
 ## [1.0.0] - 2023-10-22
 
