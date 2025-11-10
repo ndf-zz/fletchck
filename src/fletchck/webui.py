@@ -42,12 +42,14 @@ class PackageFileHandler(tornado.web.StaticFileHandler):
     @classmethod
     def get_absolute_path(cls, root, path):
         """Return the absolute path from importlib"""
-        absolute_path = files('fletchck.static').joinpath(path)
+        absolute_path = ''
+        if path:
+            absolute_path = files('fletchck.static').joinpath(path)
         return absolute_path
 
     def validate_absolute_path(self, root, absolute_path):
         """Validate and return the absolute path"""
-        if not absolute_path.is_file():
+        if not absolute_path or not absolute_path.is_file():
             raise tornado.web.HTTPError(404)
         return absolute_path
 
