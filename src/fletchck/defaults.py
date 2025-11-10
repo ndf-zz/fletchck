@@ -104,8 +104,8 @@ CERTTIMEOUT = 5
 # TLS certificate expiry pre-failure in days
 CERTEXPIRYDAYS = 7
 
-# DNS hostname / server
-DNSHOSTNAME = '127.0.0.53'
+# DNS hostname / server (None indicates system default)
+DNSSERVER = None
 
 # DNS lifetime
 DNSTIMEOUT = 5

@@ -527,7 +527,7 @@ class dnsCheck(BaseCheck):
     """DNS service check"""
 
     def _runCheck(self):
-        hostname = self.getStrOpt('hostname', '127.0.0.53')
+        server = self.getStrOpt('hostname', defaults.DNSSERVER)
         timeout = self.getIntOpt('timeout', defaults.DNSTIMEOUT)
         port = self.getIntOpt('port', defaults.DNSPORT)
         reqName = self.getStrOpt('reqName', 'org')
@@ -542,12 +542,18 @@ class dnsCheck(BaseCheck):
             else:
                 reqName = dns.name.from_unicode(reqName)
 
-            a = dns.resolver.resolve_at(where=hostname,
-                                        qname=reqName,
-                                        rdtype=reqType,
-                                        port=port,
-                                        tcp=reqTcp,
-                                        lifetime=timeout)
+            if server is not None:
+                a = dns.resolver.resolve_at(where=server,
+                                            qname=reqName,
+                                            rdtype=reqType,
+                                            port=port,
+                                            tcp=reqTcp,
+                                            lifetime=timeout)
+            else:
+                a = dns.resolver.resolve(qname=reqName,
+                                         rdtype=reqType,
+                                         tcp=reqTcp,
+                                         lifetime=timeout)
 
             self.log.append(
                 repr((str(reqName), reqType.name, ' '.join(
@@ -557,10 +563,10 @@ class dnsCheck(BaseCheck):
             if isinstance(e, ssl.SSLCertVerificationError):
                 self.softFail = 'certificate'
             _log.debug('%s (%s) %s %s: %s Log=%r', self.name, self.checkType,
-                       hostname, e.__class__.__name__, e, self.log)
-            self.log.append('%s %s: %s' % (hostname, e.__class__.__name__, e))
+                       server, e.__class__.__name__, e, self.log)
+            self.log.append('%s %s: %s' % (server, e.__class__.__name__, e))
 
-        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, hostname,
+        _log.debug('%s (%s) %s: Fail=%r', self.name, self.checkType, server,
                    failState)
         return failState
 
