@@ -19,7 +19,7 @@ from subprocess import run
 from ipaddress import IPv6Address
 from . import defaults
 from .action import loadAction
-from .check import loadCheck, getZone, BaseCheck, timeString, CHECK_TYPES
+from .check import loadCheck, getZone, BaseCheck, CHECK_TYPES
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger

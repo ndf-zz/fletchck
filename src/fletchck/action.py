@@ -95,7 +95,8 @@ class sendEmail(BaseAction):
         ml = []
         ml.append('%s (%s) in %s state at %s%s' %
                   (source.name, source.checkType, source.getState(),
-                   source.lastFail if source.failState else source.lastPass,
+                   source.timeString(source.lastFail)
+                   if source.failState else source.timeString(source.lastPass),
                    '' if source.failState else okstr))
         if source.log:
             ml.append('')
@@ -181,7 +182,7 @@ class ckSms(BaseAction):
                 source.name,
                 source.getState(),
                 source.getSummary(),
-                source.lastFail,
+                source.timeString(source.lastFail),
             )
         else:
             message = '%s%s\U0001F44D\n%s: %s\n%s' % (
@@ -189,7 +190,7 @@ class ckSms(BaseAction):
                 icon,
                 source.name,
                 source.getState(),
-                source.lastPass,
+                source.timeString(source.lastPass),
             )
         sender = self.getStrOpt('sender', 'dedicated')
         timeout = self.getIntOpt('timeout', defaults.SMSTIMEOUT)

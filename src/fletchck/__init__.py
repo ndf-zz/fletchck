@@ -10,6 +10,9 @@ from urllib.parse import quote as pathQuote
 from logging import getLogger, DEBUG, INFO, WARNING, basicConfig, Formatter
 from signal import SIGTERM
 from . import mclient
+from datetime import datetime, timezone
+# Python < 3.11 workaround for datetime.UTC
+UTC = timezone.utc
 
 basicConfig(level=DEBUG)
 _log = getLogger('fletchck')
@@ -72,8 +75,8 @@ class FletchSite():
             fakeCheck.checkType = 'action-test'
             fakeCheck.failState = True
             fakeCheck.timezone = self.timezone
-            fakeCheck.lastFail = util.timeString(self.timezone)
-            fakeCheck.lastPass = util.timeString(self.timezone)
+            fakeCheck.lastFail = datetime.now(UTC).astimezone(self.timezone)
+            fakeCheck.lastPass = datetime.now(UTC).astimezone(self.timezone)
             fakeCheck.log = []
             fakeCheck.log.append('Testing action notification')
             fakeCheck.log.append('Fletch version: %s' % (defaults.VERSION))
@@ -243,6 +246,7 @@ class FletchSite():
         return doStart
 
     def getNextRun(self, checkName):
+        """Return a human-readable datesting for the next scheduled runtime"""
         ret = None
         if checkName in self.checks:
             if self.checks[checkName].trigger is not None:
@@ -329,8 +333,8 @@ class FletchSite():
                 'failState': check.failState,
                 'trigger': check.trigger,
                 'softFail': check.softFail if check.softFail else '',
-                'lastFail': check.lastFail if check.lastFail else '',
-                'lastPass': check.lastPass if check.lastPass else ''
+                'lastFail': check.timeString(check.lastFail),
+                'lastPass': check.timeString(check.lastPass),
             }
         # re-scan all checks for sequences with failing checks
         # which have not been updated in the sequence itself

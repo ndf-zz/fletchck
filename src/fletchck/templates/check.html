@@ -11,9 +11,17 @@
      {% end %}</li>
     {% end %}
    {% end %}
-   <li>Failstate: {{ check.failState }} @ {{ check.lastCheck }}</li>
-   <li>Last Fail: {{ check.lastFail }}</li>
-   <li>Last Pass: {{ check.lastPass }}</li>
+   {% if check.failState %}
+   <li>Failstate: {{ check.failState }} @ {{ check.timeString(check.lastCheck) or 'N/A' }}</li>
+   {% else %}
+   <li>Last Check: {{ check.timeString(check.lastCheck) or 'N/A' }}</li>
+   {% end %}
+   {% if check.lastFail %}
+   <li>Last Failure: {{ check.timeString(check.lastFail) }}</li>
+   {% end %}
+   {% if check.lastPass %}
+   <li>Last Recovery: {{ check.timeString(check.lastPass) }}</li>
+   {% end %}
    {% if check.checkType == 'remote' %}
    <li>Remote Type: {{ check.subType }}</li>
    <li>Last Updated: {{ check.lastUpdate if check.lastUpdate else 'N/A' }}</li>
@@ -71,11 +79,11 @@
  </div>
  <div class="form-check mb-3">
   <input class="form-check-input" type="checkbox" value="1" name="passAction" id="passAction" {{ 'checked' if check.passAction else '' }}>
-  <label class="form-check-label" for="passAction">Notify on change to pass</label>
+  <label class="form-check-label" for="passAction">Notify on recovery</label>
  </div>
  <div class="form-check mb-3">
   <input class="form-check-input" type="checkbox" value="1" name="failAction" id="failAction" {{ 'checked' if check.failAction else '' }}>
-  <label class="form-check-label" for="failAction">Notify on change to fail</label>
+  <label class="form-check-label" for="failAction">Notify on failure</label>
  </div>
 
  <div class="form-floating{{ site.hideOption(oldName, check.checkType, 'publish') }}">

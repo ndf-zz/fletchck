@@ -4,10 +4,10 @@
  {% for check in status['checks'] %}{% if not status['inseqs'][check] %}{% if status['checks'][check]['failState'] %}<div id="{{ site.pathQuote(check) }}" class="bg-body-tertiary p-2 rounded">
    <h3 class="my-2"><a href="/check/{{ site.pathQuote(check) }}">{{ check }} ({{ status['checks'][check]['checkType'] }})</a></h3>
    <ul>
-    <li>Last Fail: {{ site.checks[check].lastFail }}</li>
+    <li>Last Fail: {{ site.checks[check].timeString(site.checks[check].lastFail) if site.checks[check].lastFail else 'N/A' }}</li>
     {% if check in status['seqs'] %}<li>Failing checks: {% for checkName in site.checks[check].checks %}{% if site.checks[checkName].failState %}<a href="/check/{{ site.pathQuote(checkName) }}">{{ checkName }}</a> {% end %}{% end %}{% end %}
     {% if site.checks[check].checkType == 'remote' %}<li>Remote Type: {{ site.checks[check].subType }}</li>
-    <li>Last Updated: {{ site.checks[check].lastUpdate if site.checks[check].lastUpdate else 'N/A' }}</li>{% end %}
+    <li>Last Updated: {{ site.checks[check].timeString(site.checks[check].lastUpdate) if site.checks[check].lastUpdate else 'N/A' }}</li>{% end %}
    </ul>
    {% if site.checks[check].log %}<p class="small">{{ site.checks[check].log[0] }}
    {% for line in site.checks[check].log[1:] %}<br>{{ line }}{% end %}</p>{% end %}

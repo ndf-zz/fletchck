@@ -47,8 +47,23 @@ LOCALZONES = {
 }
 
 
-def timeString(timezone=None):
-    return datetime.now().astimezone(timezone).strftime("%d %b %Y %H:%M %Z")
+def fromIsoOrNull(dts, timezone=None):
+    """Try to convert string to an aware datetime"""
+    # TODO: replace dateparse with datetime.fromisoformat()
+    ret = None
+    try:
+        ret = dateparse(dts, tzinfos=LOCALZONES).astimezone(timezone)
+    except Exception as e:
+        _log.debug('Ignored invalid datetime %r', dts)
+    return ret
+
+
+def isoOrNull(dt):
+    """Return datetime as isoformat or None if dt is None"""
+    ret = None
+    if dt is not None:
+        ret = dt.isoformat()
+    return ret
 
 
 def getZone(timezone=None):
@@ -123,16 +138,20 @@ def loadCheck(name, config, timezone=None):
                         ret.threshold = config['data']['threshold']
             if 'lastFail' in config['data']:
                 if isinstance(config['data']['lastFail'], str):
-                    ret.lastFail = config['data']['lastFail']
+                    ret.lastFail = fromIsoOrNull(config['data']['lastFail'],
+                                                 ret.timezone)
             if 'lastPass' in config['data']:
                 if isinstance(config['data']['lastPass'], str):
-                    ret.lastPass = config['data']['lastPass']
+                    ret.lastPass = fromIsoOrNull(config['data']['lastPass'],
+                                                 ret.timezone)
             if 'lastCheck' in config['data']:
                 if isinstance(config['data']['lastCheck'], str):
-                    ret.lastCheck = config['data']['lastCheck']
+                    ret.lastCheck = fromIsoOrNull(config['data']['lastCheck'],
+                                                  ret.timezone)
             if 'lastUpdate' in config['data']:
                 if isinstance(config['data']['lastUpdate'], str):
-                    ret.lastUpdate = config['data']['lastUpdate']
+                    ret.lastUpdate = fromIsoOrNull(
+                        config['data']['lastUpdate'], ret.timezone)
             if 'softFail' in config['data']:
                 if isinstance(config['data']['softFail'], str):
                     ret.softFail = config['data']['softFail']
@@ -186,7 +205,10 @@ class BaseCheck():
 
     def timeString(self, dt):
         """Return string formatted datetime dt in check's timezone"""
-        return dt.astimezone(self.timezone).strftime("%d %b %Y %H:%M %Z")
+        if dt is not None:
+            return dt.astimezone(self.timezone).strftime(defaults.DATEFORMAT)
+        else:
+            return ''
 
     def getState(self):
         """Return a string indicating pass or fail"""
@@ -216,14 +238,14 @@ class BaseCheck():
             self.log = ['PAUSED']
             self.failState = False
             return False
-        thisTime = timeString(self.timezone)
+        thisTime = datetime.now(UTC).astimezone(self.timezone)
         self.lastCheck = thisTime
         self.softFail = None
         for d in self.depends:
             if self.depends[d].failState:
                 self.softFail = d
                 _log.info('%s (%s) SOFTFAIL (depends=%s) %s', self.name,
-                          self.checkType, d, thisTime)
+                          self.checkType, d, isoOrNull(thisTime))
                 self.log = ['SOFTFAIL (depends=%s)' % (d)]
                 self.failState = True
                 return True
@@ -246,7 +268,7 @@ class BaseCheck():
         _log.info(
             '%s (%s): %s curFail=%r prevFail=%r failCount=%r level=%r %s',
             self.name, self.checkType, self.getState(), curFail,
-            self.failState, self.failCount, self.level, thisTime)
+            self.failState, self.failCount, self.level, isoOrNull(thisTime))
 
         if curFail:
             self.failCount += 1
@@ -318,9 +340,9 @@ class BaseCheck():
                 'failCount': self.failCount,
                 'log': self.log,
                 'softFail': self.softFail,
-                'lastCheck': self.lastCheck,
-                'lastFail': self.lastFail,
-                'lastPass': self.lastPass,
+                'lastCheck': isoOrNull(self.lastCheck),
+                'lastFail': isoOrNull(self.lastFail),
+                'lastPass': isoOrNull(self.lastPass),
                 'level': self.level
             }
         }
@@ -352,10 +374,10 @@ class BaseCheck():
                 'failCount': self.failCount,
                 'log': self.log,
                 'softFail': self.softFail,
-                'lastCheck': self.lastCheck,
-                'lastUpdate': self.lastUpdate,
-                'lastFail': self.lastFail,
-                'lastPass': self.lastPass,
+                'lastCheck': isoOrNull(self.lastCheck),
+                'lastUpdate': isoOrNull(self.lastUpdate),
+                'lastFail': isoOrNull(self.lastFail),
+                'lastPass': isoOrNull(self.lastPass),
                 'level': self.level
             }
         }
@@ -711,19 +733,18 @@ class remoteCheck(BaseCheck):
     """A check that receives state from a remote fletch over MQTT"""
 
     def _runCheck(self):
-        thisTime = datetime.now().astimezone(self.timezone)
+        thisTime = datetime.now(UTC).astimezone(self.timezone)
         timeout = self.getIntOpt('timeout', None)
         failState = self.failState
         et = 0
-        if timeout and self.lastUpdate:
-            lu = dateparse(self.lastUpdate,
-                           tzinfos=LOCALZONES).astimezone(self.timezone)
-            et = (thisTime - lu).total_seconds()
+        if timeout and self.lastUpdate is not None:
+            et = (thisTime - self.lastUpdate).total_seconds()
             if et > timeout:
+                lastUpdate = self.timeString(self.lastUpdate)
                 _log.debug('%s (%s): Update timeout %d sec / %s', self.name,
-                           self.checkType, et, self.lastUpdate)
+                           self.checkType, et, lastUpdate)
                 self.log.append('Update timeout %d sec (%s)' %
-                                (et, self.lastUpdate))
+                                (et, lastUpdate))
                 failState = True
             else:
                 # restore remote log if non-empty
@@ -790,17 +811,19 @@ class remoteCheck(BaseCheck):
                 if self.passAction:
                     doNotify = True
 
-        # Check last update field
-        lastUpdate = timeString(self.timezone)
-        if 'lastCheck' in data and data['lastCheck']:
-            # verify value as a datestring
-            try:
-                lu = dateparse(data['lastCheck'],
-                               tzinfos=LOCALZONES).astimezone(self.timezone)
-                lastUpdate = data['lastCheck']
-            except Exception:
-                _log.info('%s (%s.%s): Ignored invalid last update time',
-                          self.name, self.checkType, self.subType)
+        # read datetime fields
+        lastUpdate = datetime.now(UTC).astimezone(self.timezone)
+        dt = {}
+        for k in ('lastCheck', 'lastFail', 'lastPass'):
+            val = None
+            if k in data and data[k] is not None:
+                val = fromIsoOrNull(data[k], self.timezone)
+            # overwrite provided value
+            dt[k] = val
+
+        # use provided lastCheck if valid
+        if dt['lastCheck'] is not None:
+            lastUpdate = dt['lastCheck']
 
         # Overwrite state from remote data
         self.failState = data['failState']
@@ -809,9 +832,9 @@ class remoteCheck(BaseCheck):
         self.threshold = data['threshold']
         self.log = data['log']
         self.softFail = data['softFail']
-        self.lastCheck = data['lastCheck']
-        self.lastFail = data['lastFail']
-        self.lastPass = data['lastPass']
+        self.lastCheck = dt['lastCheck']
+        self.lastFail = dt['lastFail']
+        self.lastPass = dt['lastPass']
         self.level = data['level']
 
         if self.paused:

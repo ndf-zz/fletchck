@@ -16,6 +16,9 @@ HOSTNAME = 'localhost'
 # Fallback default timezone (none = localtime)
 TIMEZONE = None
 
+# Human-readable datetime format
+DATEFORMAT = '%d %b %Y %H:%M %Z'
+
 # Start first interval trigger this many seconds after adding
 FIRSTTRIGGER = 1
 
