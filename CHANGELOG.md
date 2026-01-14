@@ -1,8 +1,25 @@
 # Changelog
 
-## [1.1.4] 2025-11-10
+## [1.1.5] 2026-01-14
 
 ### Added
+
+   - Add self-check sequence with ram, cpu and disk checks during site init
+
+### Changed
+
+   - Store date/time values as ISO format strings
+   - Improve labels on web UI for pass/fail records
+
+### Deprecated
+
+   - Custom format date/time strings in remote update message object
+
+### Fixed
+
+   - Replace __init__ files for python3.9 compatability
+
+## [1.1.4] 2025-11-10
 
 ### Changed
 
@@ -14,9 +31,6 @@
      checks
    - Prefix email subject line with PASS/FAIL
 
-
-### Deprecated
-
 ### Removed
 
    - Remove workaround empty __init__.py files from resources dirs
@@ -24,8 +38,6 @@
 ### Fixed
 
    - Fix internal error on empty static file request
-
-### Security
 
 ## [1.1.3] (not released)
 

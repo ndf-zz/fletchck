@@ -2,7 +2,7 @@
 """Site defaults"""
 
 # Version String
-VERSION = '1.1.4'
+VERSION = '1.1.5'
 
 # Default application vanity label
 APPNAME = 'Fletchck'
