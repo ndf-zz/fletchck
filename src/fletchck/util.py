@@ -670,8 +670,46 @@ def initSite(path, webUi=True, webPort=None):
     else:
         siteCfg['webui'] = None
 
-    # Add an empty set of checks
-    siteCfg['checks'] = {}
+    # Add an initial set of checks
+    siteCfg['checks'] = {
+        "ram": {
+            "type": "memory",
+            "options": {
+                "level": 75,
+            },
+        },
+        "load": {
+            "type": "cpu",
+            "options": {
+                "level": 75,
+            },
+        },
+        "root": {
+            "type": "disk",
+            "options": {
+                "volume": "/",
+                "level": 75,
+            },
+        },
+        "self-check": {
+            "type": "sequence",
+            "trigger": {
+                "interval": {
+                    "minutes": 5
+                }
+            },
+            "threshold": 2,
+            "failAction": True,
+            "passAction": True,
+            "options": {
+                "checks": [
+                    "ram",
+                    "load",
+                    "root",
+                ],
+            },
+        },
+    }
 
     # saveconfig
     tmpName = None
