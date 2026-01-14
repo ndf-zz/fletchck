@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fletchck"
-version = "1.1.4"
+version = "1.1.5"
 description = "Machine monitor"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["system","monitor"]
